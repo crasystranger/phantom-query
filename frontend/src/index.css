@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0D1117;
+  --color-panel: #161B22;
+  --color-elevated: #1C2128;
+  --color-line: #262b35;
+  --color-hover: #21262d;
+
+  --color-accent: #22C55E;
+  --color-accent-hover: #16A34A;
+  --color-warn: #f59e0b;
+  --color-danger: #f85149;
+
+  --color-text: #E6EDF3;
+  --color-text-muted: #8b949e;
+  --color-text-faint: #6e7681;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+}
+
+:root.light {
+  --color-ink: #ffffff;
+  --color-panel: #f6f8fa;
+  --color-elevated: #ffffff;
+  --color-line: #d0d7de;
+  --color-hover: #eaeef2;
+
+  --color-text: #1f2328;
+  --color-text-muted: #57606a;
+  --color-text-faint: #6e7781;
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
+}
+
+/* Darken all the hardcoded slate-* text classes used throughout the app
+   when light mode is active. This is a broad-brush fix -- the proper long-
+   term solution is migrating every component to the semantic text tokens
+   (text-primary/text-secondary/text-muted), but this covers the app
+   correctly in the meantime without touching every file. */
+:root.light .text-slate-100,
+:root.light .text-slate-200 {
+  color: #1f2328 !important;
+}
+:root.light .text-slate-300 {
+  color: #24292f !important;
+}
+:root.light .text-slate-400 {
+  color: #57606a !important;
+}
+:root.light .text-slate-500 {
+  color: #6e7781 !important;
+}
+:root.light .text-slate-600 {
+  color: #8c959f !important;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background-color: var(--color-ink);
+  transition: background-color 0.15s, color 0.15s;
+}

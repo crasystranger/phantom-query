@@ -16,11 +16,11 @@ export default function LandingPage({ onGetStarted }: Props) {
         </span>
 
         <h1 className="text-4xl sm:text-5xl font-semibold text-slate-900 tracking-tight leading-tight">
-          Query your database in plain English
+          A controlled AI interface for your database
         </h1>
         <p className="mt-4 text-lg text-slate-600 max-w-xl mx-auto">
-          Phantom Query turns natural language questions into SQL — with a preview, a safety
-          check, and your explicit go-ahead before anything runs.
+          Ask questions in plain English. Phantom Query proposes the SQL — you review it,
+          a safety layer validates it, and nothing executes until you say so.
         </p>
 
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-5 text-left">
@@ -31,24 +31,28 @@ export default function LandingPage({ onGetStarted }: Props) {
           />
           <Feature
             icon={<ShieldCheck size={20} />}
-            title="Nothing runs without your OK"
-            body="Every query is validated, read-only, and capped automatically. You always see the SQL first."
+            title="AI proposes, you decide"
+            body="Every query is parsed, validated, and enforced read-only before it ever touches your data — and nothing runs without your explicit go-ahead."
           />
           <Feature
             icon={<BarChart3 size={20} />}
-            title="From question to chart"
-            body="Get results as clean tables, visual charts, or exports — ready to share."
+            title="Built for teams"
+            body="Role-based access, per-connection permissions, and a full audit trail — so the whole team can ask questions safely, not just the developer."
           />
         </div>
 
+        <p className="mt-8 text-sm text-slate-500">
+          Results come back as clean tables, charts, or exports — ready to share.
+        </p>
+
         <button
           onClick={onGetStarted}
-          className="mt-12 px-7 py-3.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/30 transition-all hover:-translate-y-0.5"
+          className="mt-8 px-7 py-3.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/30 transition-all hover:-translate-y-0.5"
         >
           Get Started
         </button>
         <p className="mt-3 text-sm text-slate-500">
-          No account required. Connect your own database, or explore with sample data.
+          Connect your own Postgres or MySQL database. Free to try.
         </p>
       </div>
     </div>

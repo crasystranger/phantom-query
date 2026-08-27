@@ -1,0 +1,10 @@
+node_modules/
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.env
+backend/phantom_query.db
+backend/test.db
+*.db
+*.sqlite3

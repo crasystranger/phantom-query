@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, User, Users, ChevronsUpDown, Settings, LogOut, Database, Check } from "lucide-react";
+import { LayoutDashboard, User, Users, ChevronsUpDown, Settings, LogOut, Database, Check, Menu } from "lucide-react";
 import type { Workspace, Connection } from "../type";
 
 interface Props {
@@ -13,11 +13,12 @@ interface Props {
   onGoToDashboard: () => void;
   onGoToProfile: () => void;
   onLogout: () => void;
+  onToggleSidebar: () => void;
 }
 
 export default function AppHeader({
   workspaces, activeWorkspaceId, connections, activeConnectionId, userName,
-  onSwitchWorkspace, onSwitchConnection, onGoToDashboard, onGoToProfile, onLogout,
+  onSwitchWorkspace, onSwitchConnection, onGoToDashboard, onGoToProfile, onLogout, onToggleSidebar
 }: Props) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
@@ -30,6 +31,15 @@ export default function AppHeader({
   return (
     <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle shrink-0">
       <div className="flex items-center gap-2 min-w-0">
+
+          <button
+            onClick={onToggleSidebar}
+            className="sm:hidden w-7 h-7 rounded-md border border-line flex items-center justify-center text-secondary hover:bg-hover transition-colors shrink-0"
+            title="Toggle sidebar"
+          >
+            <Menu size={15} />
+          </button>
+
         <button
           onClick={onGoToDashboard}
           className="w-7 h-7 rounded-md border border-accent/40 bg-accent/10 flex items-center justify-center text-accent-hover hover:bg-accent/20 transition-colors shrink-0"

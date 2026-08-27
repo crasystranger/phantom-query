@@ -48,6 +48,7 @@ export default function App() {
 
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
   const [pendingQuestion, setPendingQuestion] = useState<string | undefined>(undefined);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // The signed-in user's role, tagged with the workspace it was fetched for.
   // Storing the workspace id alongside the role is what makes the derived
@@ -147,19 +148,20 @@ export default function App() {
   }, [authToken, activeWorkspaceId]);
 
   async function handleSelectConnection(id: string) {
-    setActiveConnectionId(id);
-    setActiveChatId(null);
-    try {
-      const snapshot = await api.getSchema(id);
-      setSchema(snapshot);
+  setSidebarOpen(false);
+  setActiveConnectionId(id);
+  setActiveChatId(null);
+  try {
+    const snapshot = await api.getSchema(id);
+    setSchema(snapshot);
 
-      const chatList = await api.getChatsForConnection(id);
-      setChats(chatList);
-      setActiveChatId(chatList.length > 0 ? chatList[0].id : null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load schema");
-    }
+    const chatList = await api.getChatsForConnection(id);
+    setChats(chatList);
+    setActiveChatId(chatList.length > 0 ? chatList[0].id : null);
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Failed to load schema");
   }
+}
 
   async function handleNewChat() {
     if (!activeConnectionId || !activeWorkspaceId) return;
@@ -276,8 +278,22 @@ export default function App() {
         </div>
       )}
 
-      <div className="w-72 shrink-0 flex flex-col border-r border-line bg-panel">
-        <WorkspaceSwitcher
+      {sidebarOpen && (
+  <div
+    className="fixed inset-0 bg-black/50 z-30 sm:hidden"
+    onClick={() => setSidebarOpen(false)}
+  />
+)}
+
+<div
+  className={`
+    fixed sm:static inset-y-0 left-0 z-40 h-full
+    w-72 shrink-0 flex flex-col border-r border-line bg-panel
+    transform transition-transform duration-200 ease-in-out
+    ${sidebarOpen ? "translate-x-0" : "-translate-x-full sm:translate-x-0"}
+  `}
+>
+  <WorkspaceSwitcher
           workspaces={workspaces}
           activeWorkspaceId={activeWorkspaceId}
           onSwitch={setActiveWorkspaceId}
@@ -319,6 +335,7 @@ export default function App() {
           onGoToDashboard={() => setCurrentView("dashboard")}
           onGoToProfile={() => setCurrentView("profile")}
           onLogout={handleLogout}
+          onToggleSidebar={() => setSidebarOpen((v) => !v)}
         />
 
         <div className="flex-1 flex flex-col min-h-0">

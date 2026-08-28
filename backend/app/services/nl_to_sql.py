@@ -18,7 +18,7 @@ from app.db.introspector import introspect, schema_to_prompt_context
 from app.schemas import NLQueryResponse
 from app.db.token_usage import record_usage
 
-_MODEL = "gemini-3.5-flash"  # use whichever current model string your API key has access to
+_MODEL = "gemini-3.5-flash-lite"  # use whichever current model string your API key has access to
 
 _SYSTEM_PROMPT_TEMPLATE = """You are a SQL generation assistant embedded in a database \
 tool called Phantom Query. Given a database schema, the conversation so far, \

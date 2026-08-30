@@ -61,8 +61,8 @@ export default function AppHeader({
                 ) : (
                   <User size={13} className="text-secondary shrink-0" />
                 )}
-                <span className="text-sm text-secondary truncate max-w-40">{activeWorkspace.name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-hover text-faint uppercase shrink-0">
+                <span className="text-sm text-secondary truncate max-w-24 sm:max-w-40">{activeWorkspace.name}</span>
+                <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-hover text-faint uppercase shrink-0">
                   {activeWorkspace.type === "team" ? "Team" : "Personal"}
                 </span>
                 <ChevronsUpDown size={12} className="text-faint shrink-0" />
@@ -101,8 +101,8 @@ export default function AppHeader({
                 className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-hover min-w-0"
               >
                 <Database size={13} className="text-primary shrink-0" />
-                <span className="text-sm text-primary font-medium truncate max-w-40">{activeConnection.name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/15 text-accent-hover shrink-0">
+                <span className="text-sm text-primary font-medium truncate max-w-24 sm:max-w-40">{activeConnection.name}</span>
+                <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-accent/15 text-accent-hover shrink-0">
                   Active
                 </span>
                 <ChevronsUpDown size={12} className="text-faint shrink-0" />

@@ -65,27 +65,27 @@ export default function Dashboard({
 
   return (
     <div className="min-h-screen w-full bg-ink text-slate-200">
-      <div className="w-full px-8 py-8">
-        <header className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-100">Welcome back, {userName}</h1>
-            <p className="text-slate-500 mt-1">Ready to explore your data?</p>
-          </div>
-          <div className="flex gap-3">
+        <div className="w-full px-4 sm:px-8 py-6 sm:py-8">
+          <header className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold text-slate-100">Welcome back, {userName}</h1>
+              <p className="text-slate-500 mt-1 text-sm sm:text-base">Ready to explore your data?</p>
+              </div>
+              <div className="flex gap-3">
             <button
               onClick={onNewConnection}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
-            >
-              <Plus size={15} /> Connect Database
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
+            >   
+              <Plus size={15} /> <span className="hidden sm:inline">Connect Database</span><span className="sm:hidden">Connect</span>
             </button>
             <button
               onClick={onGoToQuery}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-line text-slate-300 hover:border-accent/50 hover:text-accent-hover text-sm font-medium transition-colors"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-md border border-line text-slate-300 hover:border-accent/50 hover:text-accent-hover text-sm font-medium transition-colors"
             >
-              <MessageSquarePlus size={15} /> New Query
+              <MessageSquarePlus size={15} /> <span className="hidden sm:inline">New Query</span><span className="sm:hidden">New</span>
             </button>
-          </div>
-        </header>
+            </div>
+            </header>
 
         {isNewUser ? (
           <OnboardingCard onNewConnection={onNewConnection} />
@@ -302,7 +302,7 @@ function HistoryPage({
   onGoToQuery: () => void;
 }) {
   return (
-    <div className="min-h-screen w-full bg-ink text-slate-200 px-8 py-8">
+    <div className="min-h-screen w-full bg-ink text-slate-200 px-4 sm:px-8 py-6 sm:py-8">
       <button onClick={onBack} className="text-xs text-slate-500 hover:text-accent-hover mb-4">
         ← Dashboard
       </button>

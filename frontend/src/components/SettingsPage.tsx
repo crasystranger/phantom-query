@@ -6,7 +6,7 @@ import {
   User, FileText, FolderKanban, Palette, Bell, Globe, Keyboard,
   KeyRound, Monitor, ShieldCheck, Lock, Plug, Clock, Upload, Database,
   Settings, Webhook, Puzzle, Trash2, Construction, Zap, Check, Paintbrush,
-  FileClock,
+  FileClock, Menu, X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -83,15 +83,48 @@ const NAV: NavGroup[] = [
 
 export default function SettingsPage({ onBack, workspaceId }: Props) {
   const [activeSection, setActiveSection] = useState<SectionId>("account");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen w-full bg-ink text-slate-200 flex">
-      <aside className="w-64 shrink-0 border-r border-line flex flex-col h-screen sticky top-0">
-        <div className="p-4 border-b border-line">
-          <button onClick={onBack} className="text-xs text-slate-500 hover:text-accent-hover">
-            ← Back
+    <div className="min-h-screen w-full bg-ink text-slate-200 flex flex-col sm:flex-row">
+      <div className="sm:hidden flex items-center gap-3 px-4 py-3 border-b border-line shrink-0">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="w-8 h-8 rounded-md border border-line flex items-center justify-center text-secondary hover:bg-hover transition-colors"
+        >
+          <Menu size={16} />
+        </button>
+        <span className="text-sm font-semibold text-slate-100">Settings</span>
+      </div>
+
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 sm:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-40 h-full
+          w-64 shrink-0 border-r border-line flex flex-col sm:h-screen sm:sticky sm:top-0
+          transform transition-transform duration-200 ease-in-out
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full sm:translate-x-0"}
+        `}
+      >
+        <div className="p-4 border-b border-line flex items-center justify-between">
+          <div>
+            <button onClick={onBack} className="text-xs text-slate-500 hover:text-accent-hover">
+              ← Back
+            </button>
+            <h1 className="text-sm font-semibold text-slate-100 mt-2">Settings</h1>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="sm:hidden text-slate-500 hover:text-slate-300 p-1"
+          >
+            <X size={16} />
           </button>
-          <h1 className="text-sm font-semibold text-slate-100 mt-2">Settings</h1>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-2">
@@ -105,7 +138,7 @@ export default function SettingsPage({ onBack, workspaceId }: Props) {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setActiveSection(item.id)}
+                    onClick={() => { setActiveSection(item.id); setSidebarOpen(false); }}
                     className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors ${
                       activeSection === item.id
                         ? "bg-accent/10 text-slate-100 border-r-2 border-accent"
@@ -128,7 +161,7 @@ export default function SettingsPage({ onBack, workspaceId }: Props) {
               Danger zone
             </p>
             <button
-              onClick={() => setActiveSection("delete-account")}
+              onClick={() => { setActiveSection("delete-account"); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors ${
                 activeSection === "delete-account"
                   ? "bg-danger/10 text-danger border-r-2 border-danger"
@@ -144,13 +177,15 @@ export default function SettingsPage({ onBack, workspaceId }: Props) {
       </aside>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-8 py-8">
+        <div className="max-w-2xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
           <SectionContent section={activeSection} workspaceId={workspaceId} />
         </div>
       </div>
     </div>
   );
 }
+
+
 
 function SectionContent({ section, workspaceId }: { section: SectionId; workspaceId: string | null }) {
   switch (section) {

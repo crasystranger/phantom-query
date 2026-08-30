@@ -18,7 +18,7 @@ read-only mode at connect time, per-dialect.
 import uuid
 import datetime
 import logging
-
+import time
 from app.security import encrypt_value, decrypt_value
 from app.db.database import SessionLocal
 from app.db.models import ConnectionRecord
@@ -225,6 +225,66 @@ class ConnectionManager:
         except Exception as e:
             logger.warning(f"Connection test failed for host {host} ({db_type}): {e}")
             raise ConnectionError("Could not connect to the database. Check your host, port, credentials, and SSL setting.")
+
+    def check_health(self, connection_id: str, user_id: str) -> dict:
+        """Live health check for an existing, saved connection: can we
+        actually reach it right now, what's the round-trip latency, and
+        what version is it running. Unlike test_connection (used before a
+        connection is saved, with raw credentials), this always goes
+        through get_connection() first so the same access rules apply --
+        a restricted connection a user can't see raises the same 404
+        upstream as everywhere else, rather than leaking a health result.
+
+        Never raises for a reachable-but-broken database: connection
+        failures are reported in the return value (healthy=False, error
+        set) so the router can return a normal 200 with the health
+        details, which is what the frontend's health-check panel expects
+        to render either way.
+        """
+        record = self.get_connection(connection_id, user_id)  # access-checked
+        dialect = get_dialect(record.db_type)
+        password = decrypt_value(record.encrypted_password)
+
+        start = time.monotonic()
+        try:
+            conn = dialect.connect(
+                record.host, record.port, record.database,
+                record.username, password, record.use_ssl,
+            )
+        except Exception as e:
+            logger.warning(f"Health check failed to connect for {connection_id} ({record.db_type}): {e}")
+            return {
+                "healthy": False,
+                "version": None,
+                "latency_ms": None,
+                "ssl_enabled": record.use_ssl,
+                "error": "Could not connect to the database.",
+            }
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT version()")
+            version_row = cursor.fetchone()
+            latency_ms = round((time.monotonic() - start) * 1000)
+            version = str(version_row[0]) if version_row else None
+            return {
+                "healthy": True,
+                "version": version,
+                "latency_ms": latency_ms,
+                "ssl_enabled": record.use_ssl,
+                "error": None,
+            }
+        except Exception as e:
+            logger.warning(f"Health check query failed for {connection_id} ({record.db_type}): {e}")
+            return {
+                "healthy": False,
+                "version": None,
+                "latency_ms": None,
+                "ssl_enabled": record.use_ssl,
+                "error": "Connected, but the health check query failed.",
+            }
+        finally:
+            conn.close()
 
     def _get_pool(self, stored: ConnectionRecord):
         if stored.id not in self._pools:

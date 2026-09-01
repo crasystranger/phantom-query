@@ -13,7 +13,7 @@ from app.db.models import Chat, ChatTurn
 from app.db.workspaces import is_member
 from app.db.audit import log_action
 
-_MODEL_NAME = "gemini-flash-latest"
+_MODEL_NAME = "gemini-3.5-flash-lite"
 
 
 def create_chat(user_id: str, workspace_id: str, connection_id: str, title: str) -> Chat:

@@ -5,6 +5,7 @@ from app.db.chats import create_chat, list_chats, get_chat, touch_chat, add_turn
 from app.services.nl_to_sql import generate_sql
 from app.dependencies import get_current_user_id
 from app.schemas import EditTurnRequest
+from app.db.token_usage import is_over_budget
 
 
 
@@ -33,7 +34,15 @@ def edit_turn(turn_id: str, payload: EditTurnRequest, user_id: str = Depends(get
     except KeyError:
         raise HTTPException(status_code=404, detail="Turn not found")
 
+    if is_over_budget(user_id):
+        raise HTTPException(
+            status_code=429,
+            detail="Daily AI usage limit reached. This resets at midnight UTC.",
+        )
+
     chat = get_chat(turn.chat_id, user_id)
+
+    
 
     # Only turns strictly before this one provide conversation context --
     # everything after gets discarded, since it was built on top of the

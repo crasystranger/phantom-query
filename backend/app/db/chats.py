@@ -75,12 +75,30 @@ def touch_chat(chat_id: str) -> None:
         db.close()
 
 
-def add_turn(chat_id: str, question: str, generated_sql: str) -> ChatTurn:
+def add_turn(chat_id: str, author_user_id: str, question: str, generated_sql: str) -> ChatTurn:
     db = SessionLocal()
     try:
         turn = ChatTurn(
-            id=str(uuid.uuid4()), chat_id=chat_id, question=question,
+            id=str(uuid.uuid4()), chat_id=chat_id, kind="query",
+            author_user_id=author_user_id, question=question,
             generated_sql=generated_sql, executed=False, model_used=_MODEL_NAME,
+            created_at=datetime.datetime.utcnow().isoformat(),
+        )
+        db.add(turn)
+        db.commit()
+        db.refresh(turn)
+        return turn
+    finally:
+        db.close()
+
+
+def add_message_turn(chat_id: str, author_user_id: str, text: str) -> ChatTurn:
+    db = SessionLocal()
+    try:
+        turn = ChatTurn(
+            id=str(uuid.uuid4()), chat_id=chat_id, kind="message",
+            author_user_id=author_user_id, question=text,
+            generated_sql=None, model_used=None, executed=False,
             created_at=datetime.datetime.utcnow().isoformat(),
         )
         db.add(turn)

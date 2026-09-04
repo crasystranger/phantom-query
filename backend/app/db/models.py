@@ -77,13 +77,15 @@ class ChatTurn(Base):
 
     id = Column(String, primary_key=True)
     chat_id = Column(String, nullable=False, index=True)
+    kind = Column(String, nullable=False, default="query")   # "query" | "message"
+    author_user_id = Column(String, nullable=True)
     question = Column(String, nullable=False)
-    generated_sql = Column(String, nullable=False)
+    generated_sql = Column(String, nullable=True)            # null for message turns
     edited_sql = Column(String, nullable=True)
     executed = Column(Boolean, default=False, nullable=False)
     row_count = Column(Integer, nullable=True)
     duration_ms = Column(Integer, nullable=True)
-    model_used = Column(String, nullable=False)
+    model_used = Column(String, nullable=True)               # null for message turns
     created_at = Column(String, nullable=False)
 
 class TokenUsage(Base):
@@ -125,6 +127,7 @@ class WorkspaceMember(Base):
     user_id = Column(String, nullable=False, index=True)
     role = Column(String, nullable=False)  # "owner" | "admin" | "member"
     joined_at = Column(String, nullable=False)
+    display_name = Column(String, nullable=True)
 
 class SavedQuery(Base):
     __tablename__ = "saved_queries"

@@ -14,6 +14,35 @@ from app.db.models import Workspace, WorkspaceMember, User
 from app.db.audit import log_action
 
 
+def resolve_author_names(workspace_id: str, user_ids: set) -> dict:
+    """Resolve display names for a set of user IDs in one query.
+    Falls back to first name from User.name if no display_name override is set.
+    Outer join handles removed members gracefully."""
+    if not user_ids:
+        return {}
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(User.id, User.name, WorkspaceMember.display_name)
+            .outerjoin(
+                WorkspaceMember,
+                (WorkspaceMember.user_id == User.id)
+                & (WorkspaceMember.workspace_id == workspace_id),
+            )
+            .filter(User.id.in_(user_ids))
+            .all()
+        )
+        out = {}
+        for uid, full_name, display in rows:
+            if display and display.strip():
+                out[uid] = display.strip()
+            else:
+                first = (full_name or "").strip().split(" ")[0]
+                out[uid] = first or "Unknown"
+        return out
+    finally:
+        db.close()
+
 def get_user_workspace_ids(user_id: str) -> list[str]:
     """Every workspace this user is a member of (personal + all teams)."""
     db = SessionLocal()

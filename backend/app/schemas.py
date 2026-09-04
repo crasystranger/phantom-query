@@ -153,13 +153,16 @@ class ChatOut(BaseModel):
 class ChatTurnOut(BaseModel):
     id: str
     chat_id: str
+    kind: str                           # "query" | "message"
+    author_user_id: Optional[str] = None
+    author_name: Optional[str] = None   # resolved server-side
     question: str
-    generated_sql: str
+    generated_sql: Optional[str] = None
     edited_sql: Optional[str] = None
     executed: bool
     row_count: Optional[int] = None
     duration_ms: Optional[int] = None
-    model_used: str
+    model_used: Optional[str] = None
     created_at: str
 
 

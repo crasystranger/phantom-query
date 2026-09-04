@@ -22,7 +22,7 @@ from app.db.audit import log_action
 from app.config import settings
 from app.dependencies import get_current_user_id
 from app.rate_limit import limiter
-from app.db.token_usage import is_over_budget
+
 
 logger = logging.getLogger("phantom_query")
 

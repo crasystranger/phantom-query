@@ -1,7 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
 
 from app.schemas import ChatOut, ChatTurnOut, CreateChatRequest, AddTurnRequest, UpdateTurnRequest, NLQueryResponse
-from app.db.chats import create_chat, list_chats, get_chat, touch_chat, add_turn, update_turn, list_turns, get_turn_with_ownership_check, delete_turn, edit_turn_question, list_turns_before, delete_turns_after
+from app.db.chats import (
+    create_chat, list_chats, get_chat, touch_chat, add_turn, add_message_turn,
+    update_turn, list_turns, get_turn_with_ownership_check, delete_turn,
+    edit_turn_question, list_turns_before, delete_turns_after
+)
+from app.db.workspaces import resolve_author_names
 from app.services.nl_to_sql import generate_sql
 from app.dependencies import get_current_user_id
 from app.schemas import EditTurnRequest
@@ -19,11 +24,14 @@ def _chat_out(c) -> ChatOut:
     )
 
 
-def _turn_out(t) -> ChatTurnOut:
+def _turn_out(t, author_name: str | None = None) -> ChatTurnOut:
     return ChatTurnOut(
-        id=t.id, chat_id=t.chat_id, question=t.question, generated_sql=t.generated_sql,
-        edited_sql=t.edited_sql, executed=t.executed, row_count=t.row_count,
-        duration_ms=t.duration_ms, model_used=t.model_used, created_at=t.created_at,
+        id=t.id, chat_id=t.chat_id, kind=t.kind,
+        author_user_id=t.author_user_id, author_name=author_name,
+        question=t.question, generated_sql=t.generated_sql,
+        edited_sql=t.edited_sql, executed=t.executed,
+        row_count=t.row_count, duration_ms=t.duration_ms,
+        model_used=t.model_used, created_at=t.created_at,
     )
 
 
@@ -72,15 +80,6 @@ def start_chat(payload: CreateChatRequest, user_id: str = Depends(get_current_us
     return _chat_out(chat)
 
 
-@router.get("/{chat_id}/turns", response_model=list[ChatTurnOut])
-def get_turns(chat_id: str, user_id: str = Depends(get_current_user_id)):
-    try:
-        get_chat(chat_id, user_id)  # ownership check
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Chat not found")
-    return [_turn_out(t) for t in list_turns(chat_id)]
-
-
 @router.post("/{chat_id}/turns", response_model=ChatTurnOut)
 def create_turn(chat_id: str, payload: AddTurnRequest, user_id: str = Depends(get_current_user_id)):
     try:
@@ -88,23 +87,52 @@ def create_turn(chat_id: str, payload: AddTurnRequest, user_id: str = Depends(ge
     except KeyError:
         raise HTTPException(status_code=404, detail="Chat not found")
 
+    raw = payload.question.strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+    if raw.startswith("//"):
+        kind, body = "message", raw[1:]
+    elif raw.startswith("/"):
+        kind, body = "query", raw[1:].strip()
+    else:
+        kind, body = "message", raw
+
+    if not body:
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+    if kind == "message":
+        turn = add_message_turn(chat_id, user_id, body)
+        touch_chat(chat_id)
+        return _turn_out(turn)
+
+    # --- query path only below this line ---
     if is_over_budget(user_id):
-        raise HTTPException(
-            status_code=429,
-            detail="Daily AI usage limit reached. This resets at midnight UTC.",
-        )
+        raise HTTPException(status_code=429, detail="Daily AI usage limit reached. This resets at midnight UTC.")
 
-    prior_turns = list_turns(chat_id)
-    result: NLQueryResponse = generate_sql(chat.connection_id, user_id, payload.question, prior_turns)
+    prior_turns = [t for t in list_turns(chat_id) if t.kind == "query"]
+    result: NLQueryResponse = generate_sql(chat.connection_id, user_id, body, prior_turns)
 
-    turn = add_turn(chat_id, payload.question, result.sql)
+    turn = add_turn(chat_id, user_id, body, result.sql)
     touch_chat(chat_id)
 
-    # First question in a chat becomes its title
     if len(prior_turns) == 0:
-        db_update_title(chat_id, payload.question[:60])
+        db_update_title(chat_id, body[:60])
 
     return _turn_out(turn)
+
+
+@router.get("/{chat_id}/turns", response_model=list[ChatTurnOut])
+def get_turns(chat_id: str, user_id: str = Depends(get_current_user_id)):
+    try:
+        chat = get_chat(chat_id, user_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    turns = list_turns(chat_id)
+    author_ids = {t.author_user_id for t in turns if t.author_user_id}
+    names = resolve_author_names(chat.workspace_id, author_ids)
+    return [_turn_out(t, author_name=names.get(t.author_user_id)) for t in turns]
 
 
 @router.patch("/turns/{turn_id}", response_model=ChatTurnOut)

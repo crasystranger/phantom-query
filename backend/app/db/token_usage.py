@@ -4,7 +4,7 @@ import datetime
 from app.db.database import SessionLocal
 from app.db.models import TokenUsage
 
-DAILY_TOKEN_LIMIT = 15_000  # adjust as needed
+DAILY_TOKEN_LIMIT = 50_000  # adjust as needed
 
 
 def _today() -> str:

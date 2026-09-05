@@ -11,6 +11,8 @@ from app.services.nl_to_sql import generate_sql
 from app.dependencies import get_current_user_id
 from app.schemas import EditTurnRequest
 from app.db.token_usage import is_over_budget
+from app.db.models import Workspace
+from app.db.database import SessionLocal
 
 
 
@@ -80,6 +82,15 @@ def start_chat(payload: CreateChatRequest, user_id: str = Depends(get_current_us
     return _chat_out(chat)
 
 
+def _get_workspace_type(workspace_id: str) -> str:
+    db = SessionLocal()
+    try:
+        ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+        return ws.type if ws else "personal"
+    finally:
+        db.close()
+
+
 @router.post("/{chat_id}/turns", response_model=ChatTurnOut)
 def create_turn(chat_id: str, payload: AddTurnRequest, user_id: str = Depends(get_current_user_id)):
     try:
@@ -87,16 +98,21 @@ def create_turn(chat_id: str, payload: AddTurnRequest, user_id: str = Depends(ge
     except KeyError:
         raise HTTPException(status_code=404, detail="Chat not found")
 
+    workspace_type = _get_workspace_type(chat.workspace_id) if chat.workspace_id else "personal"
+
     raw = payload.question.strip()
     if not raw:
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-    if raw.startswith("//"):
-        kind, body = "message", raw[1:]
-    elif raw.startswith("/"):
-        kind, body = "query", raw[1:].strip()
+    if workspace_type == "personal":
+        kind, body = "query", raw
     else:
-        kind, body = "message", raw
+        if raw.startswith("//"):
+            kind, body = "message", raw[1:]
+        elif raw.startswith("/"):
+            kind, body = "query", raw[1:].strip()
+        else:
+            kind, body = "message", raw
 
     if not body:
         raise HTTPException(status_code=400, detail="Message cannot be empty.")

@@ -45,7 +45,7 @@ export default function AppHeader({
           className="w-7 h-7 rounded-md border border-accent/40 bg-accent/10 flex items-center justify-center text-accent-hover hover:bg-accent/20 transition-colors shrink-0"
           title="Dashboard"
         >
-          <img src="/logo.jpg" alt="Phantom Query" className="h-7 w-auto rounded-sm" />
+          <img src="/logo.jpeg" alt="Phantom Query" className="h-7 w-auto rounded-sm" />
         </button>
 
         {activeWorkspace && (

@@ -100,13 +100,16 @@ export interface Chat {
 export interface ChatTurn {
   id: string;
   chat_id: string;
+  kind: "query" | "message";
+  author_user_id: string | null;
+  author_name: string | null;
   question: string;
-  generated_sql: string;
+  generated_sql: string | null;
   edited_sql: string | null;
   executed: boolean;
   row_count: number | null;
   duration_ms: number | null;
-  model_used: string;
+  model_used: string | null;
   created_at: string;
 }
 

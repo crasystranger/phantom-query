@@ -341,14 +341,14 @@ export default function App() {
         <div className="flex-1 flex flex-col min-h-0">
           {activeChatId && activeConnectionId && activeWorkspaceId ? (
             <ChatThread
-              key={activeChatId}
-              chatId={activeChatId}
-              connectionId={activeConnectionId}
-              workspaceId={activeWorkspaceId}
-              dbType={connections.find((c) => c.id === activeConnectionId)?.db_type}
-              initialQuestion={pendingQuestion}
-              
-            />
+                key={activeChatId}
+                chatId={activeChatId}
+                connectionId={activeConnectionId}
+                workspaceId={activeWorkspaceId}
+                dbType={connections.find((c) => c.id === activeConnectionId)?.db_type}
+                initialQuestion={pendingQuestion}
+                currentUserId={currentUserId}
+              />
           ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-slate-600">
               {activeConnectionId

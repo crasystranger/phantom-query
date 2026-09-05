@@ -11,9 +11,11 @@ interface Props {
   workspaceId: string;
   dbType?: string;
   initialQuestion?: string;
+  currentUserId: string;
   onHeaderVisibilityChange?: (visible: boolean) => void;
 }
-export default function ChatThread({ chatId, connectionId, workspaceId, dbType, initialQuestion, onHeaderVisibilityChange }: Props) {
+
+export default function ChatThread({ chatId, connectionId, workspaceId, dbType, initialQuestion, currentUserId, onHeaderVisibilityChange }: Props) {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [question, setQuestion] = useState(initialQuestion ?? "");
   const [asking, setAsking] = useState(false);
@@ -99,6 +101,7 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
                 workspaceId={workspaceId}
                 isFirst={i === 0}
                 dbType={dbType}
+                currentUserId={currentUserId}
                 onUpdate={(t) => setTurns((prev) => prev.map((p) => (p.id === t.id ? t : p)))}
                 onDelete={() => handleDeleteTurn(turn.id)}
                 onEdited={handleTurnEdited}
@@ -136,18 +139,21 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
 }
 
 function TurnBlock({
-  turn, connectionId, workspaceId, dbType, isFirst, onUpdate, onDelete, onEdited,
+  turn, connectionId, workspaceId, dbType, isFirst, currentUserId, onUpdate, onDelete, onEdited,
 }: {
   turn: ChatTurn;
   connectionId: string;
   workspaceId: string;
   dbType?: string;
   isFirst: boolean;
+  currentUserId: string;
   onUpdate: (t: ChatTurn) => void;
   onDelete: () => void;
   onEdited: (t: ChatTurn) => void;
 }) {
   const isMessage = turn.kind === "message";
+  const isOwn = !turn.author_user_id || turn.author_user_id === currentUserId;
+
 
   // — Query-only state —
   const [resultsCollapsed, setResultsCollapsed] = useState(true);
@@ -286,39 +292,41 @@ function TurnBlock({
     }
   }
 
-  const displayName = turn.author_name ?? "You";
+  
 
   return (
-    <div className={`${!isFirst ? "pt-6 mt-6 border-t border-border-subtle" : ""} ${deleting ? "opacity-40 pointer-events-none" : ""}`}>
-      {/* User bubble */}
-      <div className="flex justify-end mb-4">
-        <div className="max-w-[85%]">
-          {editingQuestion && !isMessage ? (
-            <div className="bg-panel border border-border-subtle rounded-2xl rounded-br-sm px-4 py-3 space-y-2">
-              <textarea
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                rows={2}
-                className="w-full bg-transparent text-sm text-primary focus:outline-none resize-none"
-              />
-              <div className="flex gap-3 items-center justify-end">
-                {editError && <p className="text-xs text-danger mr-auto">{editError}</p>}
-                <button onClick={() => { setEditingQuestion(false); setEditText(turn.question); setEditError(null); }} className="text-xs text-muted hover:text-secondary">
-                  Cancel
-                </button>
-                <button onClick={handleSaveEdit} disabled={savingEdit} className="text-xs px-2.5 py-1 rounded-md bg-accent hover:bg-accent-hover text-white disabled:opacity-50">
-                  {savingEdit ? "Regenerating…" : "Save"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-panel rounded-2xl rounded-br-sm px-4 py-2.5">
-              <p className="text-[11px] text-faint font-medium mb-0.5">{displayName}</p>
-              <p className="text-sm text-primary leading-relaxed">{turn.question}</p>
-            </div>
-          )}
+    <div className={`${!isFirst ? "pt-6 mt-6" : ""} ${deleting ? "opacity-40 pointer-events-none" : ""}`}>
+     {/* User bubble */}
+<div className={`flex ${isOwn ? "justify-end" : "justify-start"} mb-4`}>
+  <div className="max-w-[85%]">
+    {editingQuestion && !isMessage ? (
+      <div className="bg-panel border border-border-subtle rounded-2xl rounded-br-sm px-4 py-3 space-y-2">
+        <textarea
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+          rows={2}
+          className="w-full bg-transparent text-sm text-primary focus:outline-none resize-none"
+        />
+        <div className="flex gap-3 items-center justify-end">
+          {editError && <p className="text-xs text-danger mr-auto">{editError}</p>}
+          <button onClick={() => { setEditingQuestion(false); setEditText(turn.question); setEditError(null); }} className="text-xs text-muted hover:text-secondary">
+            Cancel
+          </button>
+          <button onClick={handleSaveEdit} disabled={savingEdit} className="text-xs px-2.5 py-1 rounded-md bg-accent hover:bg-accent-hover text-white disabled:opacity-50">
+            {savingEdit ? "Regenerating…" : "Save"}
+          </button>
         </div>
       </div>
+    ) : (
+      <div className={`bg-panel px-4 py-2.5 ${isOwn ? "rounded-2xl rounded-br-sm" : "rounded-2xl rounded-bl-sm"}`}>
+        <p className="text-[11px] text-faint font-medium mb-0.5">
+          {isOwn ? "You" : (turn.author_name ?? "Unknown")}
+        </p>
+        <p className="text-sm text-primary leading-relaxed">{turn.question}</p>
+      </div>
+    )}
+  </div>
+</div>
 
       {/* Message turns: no Phantom response box */}
       {isMessage ? (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, User, Users, ChevronsUpDown, Settings, LogOut, Database, Check, Menu } from "lucide-react";
+import { User, Users, ChevronsUpDown, Settings, LogOut, Database, Check, Menu } from "lucide-react";
 import type { Workspace, Connection } from "../type";
 
 interface Props {
@@ -45,7 +45,7 @@ export default function AppHeader({
           className="w-7 h-7 rounded-md border border-accent/40 bg-accent/10 flex items-center justify-center text-accent-hover hover:bg-accent/20 transition-colors shrink-0"
           title="Dashboard"
         >
-          <LayoutDashboard size={14} />
+          <img src="/logo.jpg" alt="Phantom Query" className="h-7 w-auto rounded-sm" />
         </button>
 
         {activeWorkspace && (

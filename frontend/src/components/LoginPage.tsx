@@ -28,11 +28,13 @@ export default function LoginPage({ onLogin, onSwitchToSignup }: Props) {
   return (
     <div className="min-h-screen bg-ink flex items-center justify-center px-6">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-100">Welcome back</h1>
-          <p className="text-sm text-slate-500 mt-1">Log in to Phantom Query</p>
+      <div className="flex justify-center mb-2">
+        <img src="/logo.jpg" alt="Phantom Query" className="h-12 w-auto rounded-md" />
         </div>
-
+      <div>
+    <h1 className="text-xl font-semibold text-slate-100">Welcome back</h1>
+    <p className="text-sm text-slate-500 mt-1">Log in to Phantom Query</p>
+  </div>
         <Field label="Email" type="email" value={email} onChange={setEmail} icon={<Mail size={14} />} />
         <Field label="Password" type="password" value={password} onChange={setPassword} icon={<Lock size={14} />} />
 

@@ -350,10 +350,13 @@ export default function App() {
                 currentUserId={currentUserId}
               />
           ) : (
-            <div className="flex-1 flex items-center justify-center text-sm text-slate-600">
-              {activeConnectionId
-                ? "Start a new chat to begin."
-                : "Select or create a connection to begin."}
+            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                 <img src="/logo.jpg" alt="" className="h-12 w-auto rounded-md opacity-20" />
+                    <p className="text-sm text-slate-600">
+                      {activeConnectionId
+                    ? "Start a new chat to begin."
+                    : "Select or create a connection to begin."}
+                    </p>
             </div>
           )}
         </div>

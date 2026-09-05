@@ -12,6 +12,7 @@ export default function LandingPage({ onGetStarted }: Props) {
 
       <div className="relative max-w-3xl text-center">
         <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-600 text-xs font-medium tracking-wide uppercase mb-5">
+          <img src="/logo.jpg" alt="Phantom Query" className="h-16 w-auto mx-auto mb-8 rounded-md" />
           Read-only, always
         </span>
 

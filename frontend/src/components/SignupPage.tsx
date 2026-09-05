@@ -29,9 +29,12 @@ export default function SignupPage({ onSignup, onSwitchToLogin }: Props) {
   return (
     <div className="min-h-screen bg-ink flex items-center justify-center px-6">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
+        <div className="flex justify-center mb-2">
+    <img src="/logo.jpg" alt="Phantom Query" className="h-12 w-auto rounded-md" />
+        </div>
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">Create your account</h1>
-          <p className="text-sm text-slate-500 mt-1">Start querying your data in plain English</p>
+        <h1 className="text-xl font-semibold text-slate-100">Create your account</h1>
+        <p className="text-sm text-slate-500 mt-1">Start querying your data in plain English</p>
         </div>
 
         <Field label="Name" type="text" value={name} onChange={setName} icon={<User size={14} />} />

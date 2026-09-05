@@ -65,7 +65,7 @@ export default function Sidebar({
   return (
     <aside className="w-72 shrink-0 border-r border-line bg-panel flex flex-col h-full">
       <div className="p-4 border-b border-line flex items-center gap-3">
-         <img src="/logo.jpg" alt="Phantom Query" className="h-8 w-auto rounded-sm shrink-0" />
+         <img src="/logo.jpeg" alt="Phantom Query" className="h-8 w-auto rounded-sm shrink-0" />
         <p className="text-xs text-slate-500">read-only, always</p>
       </div>
 

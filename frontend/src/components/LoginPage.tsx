@@ -31,7 +31,7 @@ export default function LoginPage({ onLogin, onSwitchToSignup }: Props) {
       <div className="flex justify-center mb-2">
         <img src="/logo.jpeg" alt="Phantom Query" className="h-12 w-auto rounded-md" />
         </div>
-      <div>
+    <div>
     <h1 className="text-xl font-semibold text-slate-100">Welcome back</h1>
     <p className="text-sm text-slate-500 mt-1">Log in to Phantom Query</p>
   </div>

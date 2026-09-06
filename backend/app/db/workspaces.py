@@ -159,9 +159,15 @@ def list_user_workspaces(user_id: str) -> list[Workspace]:
             r[0] for r in db.query(WorkspaceMember.workspace_id)
             .filter(WorkspaceMember.user_id == user_id).all()
         ]
-        return db.query(Workspace).filter(Workspace.id.in_(workspace_ids)).all()
+        workspaces = db.query(Workspace).filter(Workspace.id.in_(workspace_ids)).all()
     finally:
         db.close()
+
+    if not any(w.type == "personal" for w in workspaces):
+        personal = create_personal_workspace(user_id)
+        workspaces.append(personal)
+
+    return workspaces
 
 
 def create_team_workspace(owner_id: str, name: str) -> Workspace:

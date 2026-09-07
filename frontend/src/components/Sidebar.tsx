@@ -2,6 +2,7 @@ import { useState } from "react";
 import { type Connection, type SchemaSnapshot, type Chat, type SavedQuery, type Folder } from "../type";
 import { Plus, MoreHorizontal, Trash2, ChevronRight, Key, Link2, Bookmark, Activity, X, FolderPlus, FolderOpen, Folder as FolderIcon, Lock, Users, ShieldCheck } from "lucide-react";
 import { api } from "../api/client";
+import { PhantomLogo } from "./PhantomLogo";
 
 interface Props {
   connections: Connection[];
@@ -65,7 +66,7 @@ export default function Sidebar({
   return (
     <aside className="w-72 shrink-0 border-r border-line bg-panel flex flex-col h-full">
       <div className="p-4 border-b border-line flex items-center gap-3">
-         <img src="/logo.jpeg" alt="Phantom Query" className="h-8 w-auto rounded-sm shrink-0" />
+         <PhantomLogo className="h-8 w-auto" />
         <p className="text-xs text-slate-500">read-only, always</p>
       </div>
 

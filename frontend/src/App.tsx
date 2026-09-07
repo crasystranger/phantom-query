@@ -22,6 +22,7 @@ import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
 import WorkspaceMembersModal from "./components/WorkspaceMembersModal";
 import ConnectionAccessModal from "./components/ConnectionAccessModal";
 import AppHeader from "./components/AppHeader";
+import { PhantomLogo } from "./components/PhantomLogo";
 
 export default function App() {
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
@@ -358,7 +359,7 @@ export default function App() {
               />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                 <img src="/logo.jpg" alt="" className="h-12 w-auto rounded-md opacity-20" />
+                 <PhantomLogo className="h-12 w-auto opacity-20" />
                     <p className="text-sm text-slate-600">
                       {activeConnectionId
                     ? "Start a new chat to begin."

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Mail, Lock } from "lucide-react";
+import { PhantomLogo } from "./PhantomLogo";
 
 interface Props {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -29,7 +30,7 @@ export default function LoginPage({ onLogin, onSwitchToSignup }: Props) {
     <div className="min-h-screen bg-ink flex items-center justify-center px-6">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
       <div className="flex justify-center mb-2">
-        <img src="/logo.jpeg" alt="Phantom Query" className="h-12 w-auto rounded-md" />
+        <PhantomLogo className="h-12 w-auto" />
         </div>
     <div>
     <h1 className="text-xl font-semibold text-slate-100">Welcome back</h1>

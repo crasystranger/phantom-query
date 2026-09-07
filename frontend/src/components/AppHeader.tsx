@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { User, Users, ChevronsUpDown, Settings, LogOut, Database, Check, Menu } from "lucide-react";
 import type { Workspace, Connection } from "../type";
+import { PhantomLogo } from "./PhantomLogo";
 
 interface Props {
   workspaces: Workspace[];
@@ -45,7 +46,7 @@ export default function AppHeader({
           className="w-7 h-7 rounded-md border border-accent/40 bg-accent/10 flex items-center justify-center text-accent-hover hover:bg-accent/20 transition-colors shrink-0"
           title="Dashboard"
         >
-          <img src="/logo.jpeg" alt="Phantom Query" className="h-7 w-auto rounded-sm" />
+          <PhantomLogo className="h-7 w-auto" />
         </button>
 
         {activeWorkspace && (

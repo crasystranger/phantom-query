@@ -147,6 +147,13 @@ export default function App() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load connections"));
   }, [authToken, activeWorkspaceId]);
 
+  useEffect(() => {
+  setActiveConnectionId(null);
+  setSchema(null);
+  setChats([]);
+  setActiveChatId(null);
+}, [activeWorkspaceId]);
+
   async function handleSelectConnection(id: string) {
   setSidebarOpen(false);
   setActiveConnectionId(id);

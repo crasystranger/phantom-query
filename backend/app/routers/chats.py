@@ -127,7 +127,10 @@ def create_turn(chat_id: str, payload: AddTurnRequest, user_id: str = Depends(ge
         raise HTTPException(status_code=429, detail="Daily AI usage limit reached. This resets at midnight UTC.")
 
     prior_turns = [t for t in list_turns(chat_id) if t.kind == "query"]
-    result: NLQueryResponse = generate_sql(chat.connection_id, user_id, body, prior_turns)
+    try:
+        result: NLQueryResponse = generate_sql(chat.connection_id, user_id, body, prior_turns)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Connection not found or no longer accessible.")
 
     turn = add_turn(chat_id, user_id, body, result.sql)
     touch_chat(chat_id)

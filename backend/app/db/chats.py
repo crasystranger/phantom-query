@@ -133,15 +133,13 @@ def update_turn(
         db.close()
 
 
-def list_turns(chat_id: str) -> list[ChatTurn]:
+def list_turns(chat_id: str, since: str | None = None) -> list[ChatTurn]:
     db = SessionLocal()
     try:
-        return (
-            db.query(ChatTurn)
-            .filter(ChatTurn.chat_id == chat_id)
-            .order_by(ChatTurn.created_at.asc())
-            .all()
-        )
+        query = db.query(ChatTurn).filter(ChatTurn.chat_id == chat_id)
+        if since is not None:
+            query = query.filter(ChatTurn.created_at > since)
+        return query.order_by(ChatTurn.created_at.asc()).all()
     finally:
         db.close()
 

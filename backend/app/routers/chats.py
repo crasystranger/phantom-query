@@ -142,13 +142,13 @@ def create_turn(chat_id: str, payload: AddTurnRequest, user_id: str = Depends(ge
 
 
 @router.get("/{chat_id}/turns", response_model=list[ChatTurnOut])
-def get_turns(chat_id: str, user_id: str = Depends(get_current_user_id)):
+def get_turns(chat_id: str, since: str | None = None, user_id: str = Depends(get_current_user_id)):
     try:
         chat = get_chat(chat_id, user_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    turns = list_turns(chat_id)
+    turns = list_turns(chat_id, since=since)
     author_ids = {t.author_user_id for t in turns if t.author_user_id}
     names = resolve_author_names(chat.workspace_id, author_ids)
     return [_turn_out(t, author_name=names.get(t.author_user_id)) for t in turns]

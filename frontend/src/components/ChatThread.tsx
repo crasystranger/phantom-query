@@ -50,6 +50,35 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
         onHeaderVisibilityChange?.(false);
       }
       lastScrollY.current = currentY;
+
+    useEffect(() => {
+  let cancelled = false;
+
+  async function poll() {
+    if (document.hidden) return;
+    setTurns((prev) => {
+      // Capture the newest timestamp we currently have, then fetch newer.
+      const since = prev.length > 0 ? prev[prev.length - 1].created_at : undefined;
+      api.getChatTurns(chatId, since)
+        .then((incoming) => {
+          if (cancelled || incoming.length === 0) return;
+          setTurns((current) => {
+            const existingIds = new Set(current.map((t) => t.id));
+            const genuinelyNew = incoming.filter((t) => !existingIds.has(t.id));
+            return genuinelyNew.length > 0 ? [...current, ...genuinelyNew] : current;
+          });
+        })
+        .catch(() => {});
+      return prev;
+    });
+  }
+
+  const interval = setInterval(poll, 3000);
+  return () => {
+    cancelled = true;
+    clearInterval(interval);
+  };
+}, [chatId]);
     }
 
     container.addEventListener("scroll", handleScroll);

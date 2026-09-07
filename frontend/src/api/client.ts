@@ -117,8 +117,8 @@ createChat: (connectionId: string, workspaceId: string) =>
     body: JSON.stringify({ connection_id: connectionId, workspace_id: workspaceId }),
   }),
 
-getChatTurns: (chatId: string) =>
-  request<ChatTurn[]>(`/chats/${chatId}/turns`),
+getChatTurns: (chatId: string, since?: string) =>
+  request<ChatTurn[]>(`/chats/${chatId}/turns${since ? `?since=${encodeURIComponent(since)}` : ""}`),
 
 addTurn: (chatId: string, question: string) =>
   request<ChatTurn>(`/chats/${chatId}/turns`, {

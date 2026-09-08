@@ -24,6 +24,10 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollY = useRef(0);
+  const turnsRef = useRef<ChatTurn[]>([]);
+
+
+  useEffect(() => { turnsRef.current = turns; }, [turns]);
 
   useEffect(() => {
     setLoading(true);
@@ -56,21 +60,19 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
 
   async function poll() {
     if (document.hidden) return;
-    setTurns((prev) => {
-      // Capture the newest timestamp we currently have, then fetch newer.
-      const since = prev.length > 0 ? prev[prev.length - 1].created_at : undefined;
-      api.getChatTurns(chatId, since)
-        .then((incoming) => {
-          if (cancelled || incoming.length === 0) return;
-          setTurns((current) => {
-            const existingIds = new Set(current.map((t) => t.id));
-            const genuinelyNew = incoming.filter((t) => !existingIds.has(t.id));
-            return genuinelyNew.length > 0 ? [...current, ...genuinelyNew] : current;
-          });
-        })
-        .catch(() => {});
-      return prev;
-    });
+    const current = turnsRef.current;
+    const since = current.length > 0 ? current[current.length - 1].created_at : undefined;
+    try {
+      const incoming = await api.getChatTurns(chatId, since);
+      if (cancelled || incoming.length === 0) return;
+      setTurns((existing) => {
+        const existingIds = new Set(existing.map((t) => t.id));
+        const genuinelyNew = incoming.filter((t) => !existingIds.has(t.id));
+        return genuinelyNew.length > 0 ? [...existing, ...genuinelyNew] : existing;
+      });
+    } catch {
+      // ignore poll errors
+    }
   }
 
   const interval = setInterval(poll, 3000);

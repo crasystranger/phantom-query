@@ -40,7 +40,7 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns.length]);
 
-  useEffect(() => {
+    useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -54,39 +54,38 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
         onHeaderVisibilityChange?.(false);
       }
       lastScrollY.current = currentY;
-
-    useEffect(() => {
-  let cancelled = false;
-
-  async function poll() {
-    if (document.hidden) return;
-    const current = turnsRef.current;
-    const since = current.length > 0 ? current[current.length - 1].created_at : undefined;
-    try {
-      const incoming = await api.getChatTurns(chatId, since);
-      if (cancelled || incoming.length === 0) return;
-      setTurns((existing) => {
-        const existingIds = new Set(existing.map((t) => t.id));
-        const genuinelyNew = incoming.filter((t) => !existingIds.has(t.id));
-        return genuinelyNew.length > 0 ? [...existing, ...genuinelyNew] : existing;
-      });
-    } catch {
-      // ignore poll errors
-    }
-  }
-
-  const interval = setInterval(poll, 3000);
-  return () => {
-    cancelled = true;
-    clearInterval(interval);
-  };
-}, [chatId]);
     }
 
     container.addEventListener("scroll", handleScroll);
     return () => container.removeEventListener("scroll", handleScroll);
   }, [onHeaderVisibilityChange]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function poll() {
+      if (document.hidden) return;
+      const current = turnsRef.current;
+      const since = current.length > 0 ? current[current.length - 1].created_at : undefined;
+      try {
+        const incoming = await api.getChatTurns(chatId, since);
+        if (cancelled || incoming.length === 0) return;
+        setTurns((existing) => {
+          const existingIds = new Set(existing.map((t) => t.id));
+          const genuinelyNew = incoming.filter((t) => !existingIds.has(t.id));
+          return genuinelyNew.length > 0 ? [...existing, ...genuinelyNew] : existing;
+        });
+      } catch {
+        // ignore poll errors
+      }
+    }
+
+    const interval = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [chatId]);
   async function handleAsk(e: React.FormEvent) {
     e.preventDefault();
     if (!question.trim()) return;

@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  BarChart3, ChevronDown, Download, FileJson, FileSpreadsheet, Sheet, Sparkles, Table2,
+} from "lucide-react";
 import type { ExecuteQueryResponse } from "../type";
 import { exportToCsv, exportToExcel, exportToJson } from "../utils/export";
 import { api } from "../api/client";
 import ChartView from "./ChartView";
+import { Alert, Badge, Button, EmptyState, Menu, MenuItem, SegmentedControl } from "./ui";
 
 interface Props {
   results: ExecuteQueryResponse;
@@ -13,157 +17,224 @@ interface Props {
 
 const PAGE_SIZE = 50;
 
+/** Right-aligning numbers is what makes a column of figures comparable at a
+ *  glance; everything else stays left-aligned. Decided per column from the
+ *  first non-null value so a single null doesn't flip the alignment. */
+function isNumericColumn(rows: unknown[][], index: number): boolean {
+  for (const row of rows) {
+    const cell = row[index];
+    if (cell === null || cell === undefined || cell === "") continue;
+    return typeof cell === "number" || (typeof cell === "string" && cell.trim() !== "" && !isNaN(Number(cell)));
+  }
+  return false;
+}
+
 export default function ResultsTable({ results, question, sql, dbType }: Props) {
   const [view, setView] = useState<"table" | "chart">("table");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const visibleRows = results.rows.slice(0, visibleCount);
   const hasMore = visibleCount < results.rows.length;
+  const canSummarize = Boolean(question && sql);
+
+  const numericColumns = useMemo(
+    () => results.columns.map((_, i) => isNumericColumn(results.rows, i)),
+    [results]
+  );
 
   async function handleSummarize() {
     if (!question || !sql) return;
     setSummarizing(true);
+    setSummaryError(null);
     try {
       const res = await api.summarizeResults(question, sql, results.columns, results.rows);
       setSummary(res.summary);
+    } catch (err) {
+      setSummaryError(err instanceof Error ? err.message : "Couldn't summarise these results.");
     } finally {
       setSummarizing(false);
     }
   }
 
-  function handleExportExcel() {
-    if (!question || !sql) return;
-    exportToExcel(results, { question, sql, dbType });
+  if (results.rows.length === 0) {
+    return (
+      <EmptyState
+        icon={<Table2 size={18} />}
+        title="No rows matched"
+        description="The query ran successfully against the database and came back empty. Try widening the question — a different date range, or fewer filters."
+        className="py-8"
+      />
+    );
   }
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-4 pb-0 flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <p className="text-xs text-slate-500">
-            {results.row_count} row{results.row_count !== 1 ? "s" : ""}
-            {results.truncated && " (truncated)"}
+    <div className="min-w-0">
+      {/* ------------------------------------------------------- toolbar -- */}
+      <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-3 border-b border-border-subtle">
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-xs text-muted whitespace-nowrap">
+            <span className="font-medium text-primary tabular-nums">
+              {results.row_count.toLocaleString()}
+            </span>{" "}
+            row{results.row_count !== 1 ? "s" : ""}
           </p>
-
-          <div className="flex rounded-md border border-line overflow-hidden">
-            <button
-              onClick={() => setView("table")}
-              className={`text-xs px-2.5 py-1 transition-colors ${
-                view === "table" ? "bg-accent text-white" : "text-slate-400 hover:bg-panel"
-              }`}
-            >
-              Table
-            </button>
-            <button
-              onClick={() => setView("chart")}
-              className={`text-xs px-2.5 py-1 transition-colors ${
-                view === "chart" ? "bg-accent text-white" : "text-slate-400 hover:bg-panel"
-              }`}
-            >
-              Chart
-            </button>
-          </div>
+          {results.truncated && (
+            <Badge tone="warn" title="The server capped this result set">
+              Truncated
+            </Badge>
+          )}
         </div>
 
-        {results.rows.length > 0 && (
-          <div className="flex gap-2">
-            {question && sql && (
-              <button
-                onClick={handleSummarize}
-                disabled={summarizing}
-                className="text-xs px-2.5 py-1 rounded-md border border-line text-slate-400 hover:text-accent-hover hover:border-accent/50 disabled:opacity-50 transition-colors"
-              >
-                {summarizing ? "Summarizing…" : "✨ Summarize"}
-              </button>
-            )}
-            <button
-              onClick={() => exportToCsv(results)}
-              className="text-xs px-2.5 py-1 rounded-md border border-line text-slate-400 hover:text-accent-hover hover:border-accent/50 transition-colors"
+        <div className="flex items-center gap-2 ml-auto">
+          <SegmentedControl
+            label="Result view"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "table", label: <><Table2 size={12} aria-hidden /> Table</>, title: "Table view" },
+              { value: "chart", label: <><BarChart3 size={12} aria-hidden /> Chart</>, title: "Chart view" },
+            ]}
+          />
+
+          {canSummarize && (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Sparkles size={13} />}
+              loading={summarizing}
+              onClick={handleSummarize}
+              aria-label="Summarise these results"
             >
-              Export CSV
-            </button>
-            {question && sql && (
-              <button
-                onClick={handleExportExcel}
-                className="text-xs px-2.5 py-1 rounded-md border border-line text-slate-400 hover:text-accent-hover hover:border-accent/50 transition-colors"
+              <span className="hidden sm:inline">Summarise</span>
+            </Button>
+          )}
+
+          <Menu
+            trigger={(props) => (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Download size={13} />}
+                iconRight={<ChevronDown size={12} />}
+                aria-label="Export results"
+                {...props}
               >
-                Export Excel
-              </button>
+                <span className="hidden sm:inline">Export</span>
+              </Button>
             )}
-            <button
-              onClick={() => exportToJson(results)}
-              className="text-xs px-2.5 py-1 rounded-md border border-line text-slate-400 hover:text-accent-hover hover:border-accent/50 transition-colors"
-            >
-              Export JSON
-            </button>
-          </div>
-        )}
+          >
+            {(close) => (
+              <>
+                <MenuItem
+                  icon={<Sheet size={14} />}
+                  onClick={() => { exportToCsv(results); close(); }}
+                >
+                  CSV
+                </MenuItem>
+                {canSummarize && (
+                  <MenuItem
+                    icon={<FileSpreadsheet size={14} />}
+                    onClick={() => {
+                      exportToExcel(results, { question: question!, sql: sql!, dbType });
+                      close();
+                    }}
+                  >
+                    Excel
+                  </MenuItem>
+                )}
+                <MenuItem
+                  icon={<FileJson size={14} />}
+                  onClick={() => { exportToJson(results); close(); }}
+                >
+                  JSON
+                </MenuItem>
+              </>
+            )}
+          </Menu>
+        </div>
       </div>
 
-      {summary && (
-        <div className="mx-4 mt-3 rounded-md border border-accent/30 bg-accent/10 px-3 py-2.5 text-sm text-slate-300">
-          <span className="text-accent-hover font-medium">✨ Summary: </span>
-          {summary}
+      {(summary || summaryError) && (
+        <div className="px-3 sm:px-4 pt-3">
+          {summaryError ? (
+            <Alert tone="danger" title="Summary unavailable">{summaryError}</Alert>
+          ) : (
+            <Alert tone="success" title="Summary">{summary}</Alert>
+          )}
         </div>
       )}
 
       {view === "chart" ? (
         <ChartView results={results} />
       ) : (
-        <div className="p-4">
-          {results.rows.length === 0 ? (
-            <p className="text-sm text-slate-500">No rows returned.</p>
-          ) : (
-            <>
-              <div className="border border-line rounded-md overflow-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-line bg-panel">
-                      {results.columns.map((col) => (
-                        <th key={col} className="text-left px-3 py-2 font-mono text-xs text-slate-400 font-medium">
-                          {col}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleRows.map((row, i) => (
-                      <tr key={i} className="border-b border-line last:border-0 hover:bg-panel/50">
-                        {row.map((cell, j) => (
-                          <td key={j} className="px-3 py-2 text-slate-300 font-mono text-xs">
-                            {cell === null ? <span className="text-slate-600 italic">null</span> : String(cell)}
-                          </td>
-                        ))}
-                      </tr>
+        <div className="p-3 sm:p-4">
+          {/* The scroll container is the only thing allowed to overflow --
+              a wide result must never push the whole page sideways. */}
+          <div className="rounded-lg border border-line overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <caption className="sr-only">
+                Query results, {results.row_count} rows across {results.columns.length} columns
+              </caption>
+              <thead>
+                <tr className="bg-raised">
+                  {results.columns.map((col, i) => (
+                    <th
+                      key={col}
+                      scope="col"
+                      className={`sticky top-0 px-3 py-2 font-mono font-medium text-[11px] text-muted
+                        border-b border-line whitespace-nowrap bg-raised
+                        ${numericColumns[i] ? "text-right" : "text-left"}`}
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRows.map((row, i) => (
+                  <tr key={i} className="border-b border-border-subtle last:border-0 hover:bg-hover transition-colors">
+                    {row.map((cell, j) => (
+                      <td
+                        key={j}
+                        className={`px-3 py-2 font-mono align-top max-w-xs truncate
+                          ${numericColumns[j] ? "text-right tabular-nums text-primary" : "text-secondary"}`}
+                        title={cell === null ? undefined : String(cell)}
+                      >
+                        {cell === null || cell === undefined ? (
+                          <span className="text-faint italic">null</span>
+                        ) : (
+                          String(cell)
+                        )}
+                      </td>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-              {(hasMore || visibleCount > PAGE_SIZE) && (
-                <div className="flex justify-center gap-2 mt-3">
-                  {hasMore && (
-                    <button
-                      onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
-                      className="text-xs px-4 py-1.5 rounded-md border border-line text-slate-400 hover:border-accent/50 hover:text-accent-hover transition-colors"
-                    >
-                      Show {Math.min(PAGE_SIZE, results.rows.length - visibleCount)} more
-                      ({visibleCount} of {results.rows.length} shown)
-                    </button>
-                  )}
-                  {visibleCount > PAGE_SIZE && (
-                    <button
-                      onClick={() => setVisibleCount(PAGE_SIZE)}
-                      className="text-xs px-4 py-1.5 rounded-md border border-line text-slate-400 hover:border-accent/50 hover:text-accent-hover transition-colors"
-                    >
-                      Show less
-                    </button>
-                  )}
-                </div>
-              )}
-            </>
+          {(hasMore || visibleCount > PAGE_SIZE) && (
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-3">
+              <p className="text-[11px] text-faint tabular-nums">
+                Showing {Math.min(visibleCount, results.rows.length).toLocaleString()} of{" "}
+                {results.rows.length.toLocaleString()}
+              </p>
+              <div className="flex gap-2">
+                {hasMore && (
+                  <Button size="sm" variant="secondary" onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}>
+                    Show {Math.min(PAGE_SIZE, results.rows.length - visibleCount)} more
+                  </Button>
+                )}
+                {visibleCount > PAGE_SIZE && (
+                  <Button size="sm" variant="ghost" onClick={() => setVisibleCount(PAGE_SIZE)}>
+                    Show less
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}

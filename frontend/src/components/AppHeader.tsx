@@ -1,7 +1,11 @@
 import { useState } from "react";
-import { User, Users, ChevronsUpDown, Settings, LogOut, Database, Check, Menu } from "lucide-react";
+import {
+  Check, ChevronsUpDown, Database, LayoutDashboard, LogOut, Menu as MenuIcon,
+  Plus, Settings, User, Users,
+} from "lucide-react";
 import type { Workspace, Connection } from "../type";
 import { PhantomLogo } from "./PhantomLogo";
+import { Badge, Button, Input, Menu, MenuItem, MenuLabel, MenuSeparator } from "./ui";
 
 interface Props {
   workspaces: Workspace[];
@@ -9,166 +13,297 @@ interface Props {
   connections: Connection[];
   activeConnectionId: string | null;
   userName: string;
+  canManageMembers: boolean;
   onSwitchWorkspace: (id: string) => void;
   onSwitchConnection: (id: string) => void;
+  onCreateTeam: (name: string) => Promise<void> | void;
+  onManageMembers: (workspaceId: string, workspaceName: string) => void;
+  onNewConnection: () => void;
   onGoToDashboard: () => void;
   onGoToProfile: () => void;
   onLogout: () => void;
   onToggleSidebar: () => void;
 }
 
+/**
+ * The context bar. It answers "where am I" as a breadcrumb -- workspace, then
+ * database -- because those two facts decide what a question will actually
+ * run against. Both segments are also the switchers for their level, so
+ * changing context happens where the context is displayed rather than in a
+ * second control elsewhere.
+ */
 export default function AppHeader({
   workspaces, activeWorkspaceId, connections, activeConnectionId, userName,
-  onSwitchWorkspace, onSwitchConnection, onGoToDashboard, onGoToProfile, onLogout, onToggleSidebar
+  canManageMembers, onSwitchWorkspace, onSwitchConnection, onCreateTeam,
+  onManageMembers, onNewConnection, onGoToDashboard, onGoToProfile, onLogout,
+  onToggleSidebar,
 }: Props) {
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
-  const [connectionMenuOpen, setConnectionMenuOpen] = useState(false);
-
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const activeConnection = connections.find((c) => c.id === activeConnectionId);
-  const initials = userName ? userName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase() : "?";
+  const initials = userName
+    ? userName.trim().split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase()
+    : "?";
 
   return (
-    <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle shrink-0">
-      <div className="flex items-center gap-2 min-w-0">
+    <header className="flex items-center justify-between gap-2 px-3 sm:px-4 h-14 border-b border-border-subtle bg-panel shrink-0">
+      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+        <button
+          onClick={onToggleSidebar}
+          aria-label="Open workspace navigation"
+          className="lg:hidden w-9 h-9 -ml-1 rounded-md flex items-center justify-center text-muted hover:text-primary hover:bg-hover transition-colors shrink-0"
+        >
+          <MenuIcon size={18} />
+        </button>
 
-          <button
-            onClick={onToggleSidebar}
-            className="sm:hidden w-7 h-7 rounded-md border border-line flex items-center justify-center text-secondary hover:bg-hover transition-colors shrink-0"
-            title="Toggle sidebar"
-          >
-            <Menu size={15} />
-          </button>
-
+        {/* Below `sm` the hamburger already anchors the left edge and Dashboard
+            lives in the account menu, so the mark yields its 36px to the
+            breadcrumb -- which is the context a person actually needs. */}
         <button
           onClick={onGoToDashboard}
-          className="w-7 h-7 rounded-md border border-accent/40 bg-accent/10 flex items-center justify-center text-accent-hover hover:bg-accent/20 transition-colors shrink-0"
-          title="Dashboard"
+          title="Go to dashboard"
+          aria-label="Go to dashboard"
+          className="hidden sm:flex h-9 px-2 rounded-md items-center text-primary hover:bg-hover transition-colors shrink-0"
         >
-          <PhantomLogo className="h-7 w-auto" />
+          <PhantomLogo className="h-5 w-auto" />
         </button>
 
         {activeWorkspace && (
           <>
-            <span className="text-faint shrink-0">/</span>
-            <div className="relative">
-              <button
-                onClick={() => setWorkspaceMenuOpen(!workspaceMenuOpen)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-hover transition-colors min-w-0"
-              >
-                {activeWorkspace.type === "team" ? (
-                  <Users size={13} className="text-secondary shrink-0" />
-                ) : (
-                  <User size={13} className="text-secondary shrink-0" />
-                )}
-                <span className="text-sm text-secondary truncate max-w-24 sm:max-w-40">{activeWorkspace.name}</span>
-                <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-hover text-faint uppercase shrink-0">
-                  {activeWorkspace.type === "team" ? "Team" : "Personal"}
-                </span>
-                <ChevronsUpDown size={12} className="text-faint shrink-0" />
-              </button>
-
-              {workspaceMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setWorkspaceMenuOpen(false)} />
-                  <div className="absolute left-0 top-9 z-50 bg-elevated border border-border-subtle rounded-lg shadow-lg py-1 min-w-56">
-                    {workspaces.map((ws) => (
-                      <button
-                        key={ws.id}
-                        onClick={() => { onSwitchWorkspace(ws.id); setWorkspaceMenuOpen(false); }}
-                        className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm transition-colors ${
-                          ws.id === activeWorkspaceId ? "text-accent-hover bg-accent/10" : "text-secondary hover:bg-hover"
-                        }`}
-                      >
-                        {ws.type === "team" ? <Users size={13} /> : <User size={13} />}
-                        <span className="truncate flex-1">{ws.name}</span>
-                        {ws.id === activeWorkspaceId && <Check size={13} />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <Divider />
+            <WorkspacePicker
+              workspaces={workspaces}
+              activeWorkspace={activeWorkspace}
+              canManageMembers={canManageMembers}
+              onSwitchWorkspace={onSwitchWorkspace}
+              onCreateTeam={onCreateTeam}
+              onManageMembers={onManageMembers}
+            />
           </>
         )}
 
         {activeConnection && (
           <>
-            <span className="text-faint shrink-0">/</span>
-            <div className="relative">
-              <button
-                onClick={() => setConnectionMenuOpen(!connectionMenuOpen)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-hover min-w-0"
-              >
-                <Database size={13} className="text-primary shrink-0" />
-                <span className="text-sm text-primary font-medium truncate max-w-24 sm:max-w-40">{activeConnection.name}</span>
-                <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-accent/15 text-accent-hover shrink-0">
-                  Active
-                </span>
-                <ChevronsUpDown size={12} className="text-faint shrink-0" />
-              </button>
-
-              {connectionMenuOpen && (
+            <Divider />
+            <Menu
+              align="left"
+              trigger={(props) => (
+                <button
+                  {...props}
+                  className="flex items-center gap-1.5 h-8 px-2 rounded-md hover:bg-hover transition-colors min-w-0"
+                >
+                  <Database size={14} className="text-accent shrink-0" aria-hidden />
+                  <span className="text-sm font-medium text-primary truncate min-w-0 sm:max-w-44">
+                    {activeConnection.name}
+                  </span>
+                  <ChevronsUpDown size={12} className="text-faint shrink-0" aria-hidden />
+                </button>
+              )}
+            >
+              {(close) => (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setConnectionMenuOpen(false)} />
-                  <div className="absolute left-0 top-9 z-50 bg-elevated border border-border-subtle rounded-lg shadow-lg py-1 min-w-56 max-h-72 overflow-y-auto">
-                    {connections.length === 0 ? (
-                      <p className="px-3 py-2 text-xs text-faint">No connections in this workspace.</p>
-                    ) : (
-                      connections.map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => { onSwitchConnection(c.id); setConnectionMenuOpen(false); }}
-                          className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm transition-colors ${
-                            c.id === activeConnectionId ? "text-accent-hover bg-accent/10" : "text-secondary hover:bg-hover"
-                          }`}
-                        >
-                          <Database size={13} className="shrink-0" />
-                          <span className="truncate flex-1">{c.name}</span>
-                          {c.id === activeConnectionId && <Check size={13} />}
-                        </button>
-                      ))
-                    )}
-                  </div>
+                  <MenuLabel>Query against</MenuLabel>
+                  {connections.map((c) => (
+                    <MenuItem
+                      key={c.id}
+                      icon={<Database size={14} />}
+                      selected={c.id === activeConnectionId}
+                      onClick={() => { onSwitchConnection(c.id); close(); }}
+                    >
+                      {c.name}
+                    </MenuItem>
+                  ))}
+                  <MenuSeparator />
+                  <MenuItem
+                    icon={<Plus size={14} />}
+                    onClick={() => { onNewConnection(); close(); }}
+                  >
+                    New connection
+                  </MenuItem>
                 </>
               )}
-            </div>
+            </Menu>
           </>
         )}
       </div>
 
-      <div className="relative shrink-0">
-        <button
-          onClick={() => setAccountMenuOpen(!accountMenuOpen)}
-          className="w-7 h-7 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-[11px] text-accent-hover font-medium hover:border-accent/60 transition-colors"
+      <div className="flex items-center gap-1 shrink-0">
+        <div className="hidden sm:block">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<LayoutDashboard size={15} />}
+            onClick={onGoToDashboard}
+          >
+            Dashboard
+          </Button>
+        </div>
+
+        <Menu
+          trigger={(props) => (
+            <button
+              {...props}
+              aria-label="Account menu"
+              className="w-9 h-9 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-[11px] font-semibold text-accent-text hover:border-accent/60 transition-colors"
+            >
+              {initials}
+            </button>
+          )}
         >
-          {initials}
-        </button>
-        {accountMenuOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setAccountMenuOpen(false)} />
-            <div className="absolute right-0 top-9 z-50 bg-elevated border border-border-subtle rounded-lg shadow-lg py-1 min-w-40">
+          {(close) => (
+            <>
               <div className="px-3 py-2 border-b border-border-subtle">
-                <p className="text-sm text-primary truncate">{userName || "Account"}</p>
+                <p className="text-sm font-medium text-primary truncate">{userName || "Account"}</p>
               </div>
-              <button
-                onClick={() => { setAccountMenuOpen(false); onGoToProfile(); }}
-                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover"
+              <MenuItem
+                icon={<LayoutDashboard size={14} />}
+                className="sm:hidden"
+                onClick={() => { close(); onGoToDashboard(); }}
               >
-                <Settings size={14} /> Profile & Settings
-              </button>
-              <div className="my-1 border-t border-border-subtle" />
-              <button
-                onClick={() => { setAccountMenuOpen(false); onLogout(); }}
-                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-danger hover:bg-hover"
-              >
-                <LogOut size={14} /> Log out
-              </button>
-            </div>
-          </>
-        )}
+                Dashboard
+              </MenuItem>
+              <MenuItem icon={<Settings size={14} />} onClick={() => { close(); onGoToProfile(); }}>
+                Settings
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem danger icon={<LogOut size={14} />} onClick={() => { close(); onLogout(); }}>
+                Log out
+              </MenuItem>
+            </>
+          )}
+        </Menu>
       </div>
-    </div>
+    </header>
+  );
+}
+
+function Divider() {
+  return (
+    <span className="text-faint select-none shrink-0" aria-hidden>
+      /
+    </span>
+  );
+}
+
+function WorkspacePicker({
+  workspaces, activeWorkspace, canManageMembers, onSwitchWorkspace, onCreateTeam, onManageMembers,
+}: {
+  workspaces: Workspace[];
+  activeWorkspace: Workspace;
+  canManageMembers: boolean;
+  onSwitchWorkspace: (id: string) => void;
+  onCreateTeam: (name: string) => Promise<void> | void;
+  onManageMembers: (workspaceId: string, workspaceName: string) => void;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCreate(e: React.FormEvent, close: () => void) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onCreateTeam(newName.trim());
+      setNewName("");
+      setCreating(false);
+      close();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create the workspace.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Menu
+      align="left"
+      className="min-w-64"
+      trigger={(props) => (
+        <button
+          {...props}
+          aria-label={`Workspace: ${activeWorkspace.name}. Switch workspace`}
+          className="flex items-center gap-1.5 h-8 px-2 rounded-md hover:bg-hover transition-colors min-w-0"
+        >
+          {activeWorkspace.type === "team" ? (
+            <Users size={14} className="text-muted shrink-0" aria-hidden />
+          ) : (
+            <User size={14} className="text-muted shrink-0" aria-hidden />
+          )}
+          <span className="hidden sm:block text-sm text-secondary truncate min-w-0 sm:max-w-40">
+            {activeWorkspace.name}
+          </span>
+          <ChevronsUpDown size={12} className="text-faint shrink-0" aria-hidden />
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          <MenuLabel>Workspaces</MenuLabel>
+          {workspaces.map((ws) => (
+            <div key={ws.id} className="flex items-center gap-1 pr-1.5">
+              <MenuItem
+                icon={ws.type === "team" ? <Users size={14} /> : <User size={14} />}
+                selected={ws.id === activeWorkspace.id}
+                onClick={() => { onSwitchWorkspace(ws.id); close(); }}
+              >
+                {ws.name}
+              </MenuItem>
+              {ws.id === activeWorkspace.id && (
+                <Check size={13} className="text-accent-text shrink-0" aria-hidden />
+              )}
+            </div>
+          ))}
+
+          {activeWorkspace.type === "team" && canManageMembers && (
+            <>
+              <MenuSeparator />
+              <MenuItem
+                icon={<Users size={14} />}
+                onClick={() => { onManageMembers(activeWorkspace.id, activeWorkspace.name); close(); }}
+              >
+                Manage members
+              </MenuItem>
+            </>
+          )}
+
+          <MenuSeparator />
+          {creating ? (
+            <form onSubmit={(e) => handleCreate(e, close)} className="px-3 py-2 space-y-2">
+              <Input
+                label="Team name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Data team"
+                error={error}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="ghost" onClick={() => { setCreating(false); setError(null); }}>
+                  Cancel
+                </Button>
+                <Button size="sm" variant="primary" type="submit" loading={submitting}>
+                  Create
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <MenuItem icon={<Plus size={14} />} onClick={() => setCreating(true)}>
+              New team workspace
+            </MenuItem>
+          )}
+        </>
+      )}
+    </Menu>
+  );
+}
+
+/** Compact workspace-type marker, used where a full picker would be noise. */
+export function WorkspaceBadge({ type }: { type: Workspace["type"] }) {
+  return type === "team" ? (
+    <Badge tone="info" icon={<Users size={9} />}>Team</Badge>
+  ) : (
+    <Badge tone="neutral" icon={<User size={9} />}>Personal</Badge>
   );
 }

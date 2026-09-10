@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { type Connection, type SchemaSnapshot, type Chat, type SavedQuery, type Folder } from "../type";
-import { Plus, MoreHorizontal, Trash2, ChevronRight, Key, Link2, Bookmark, Activity, X, FolderPlus, FolderOpen, Folder as FolderIcon, Lock, Users, ShieldCheck } from "lucide-react";
+import type { Connection, SchemaSnapshot, Chat, SavedQuery } from "../type";
+import {
+  Activity, Bookmark, ChevronRight, Database, Key, Link2, Lock, MessageSquarePlus,
+  MoreHorizontal, Plus, ShieldCheck, Table2, Trash2, Users, X,
+} from "lucide-react";
 import { api } from "../api/client";
-import { PhantomLogo } from "./PhantomLogo";
+import { Badge, Button, Menu, MenuItem, MenuSeparator, StatusIndicator } from "./ui";
 
 interface Props {
   connections: Connection[];
@@ -11,7 +14,7 @@ interface Props {
   chats: Chat[];
   activeChatId: string | null;
   savedQueries: SavedQuery[];
-  folders: Folder[];
+  connectionsLoading: boolean;
   onSelectConnection: (id: string) => void;
   onNewConnection: () => void;
   onDeleteConnection: (id: string) => void;
@@ -19,366 +22,257 @@ interface Props {
   onNewChat: () => void;
   onOpenSavedQuery: (q: SavedQuery) => void;
   onDeleteSavedQuery: (id: string) => void;
-  onCreateFolder: (name: string, parentId: string | null) => void;
-  onDeleteFolder: (folderId: string) => void;
-  onMoveConnection: (connectionId: string, folderId: string | null) => void;
   /** Admin or owner in the active workspace. Controls whether the "Manage
    *  access" menu item is offered -- the backend refuses it regardless. */
   canManageAccess: boolean;
   onManageConnectionAccess: (connection: Connection) => void;
 }
 
+/**
+ * The workspace navigation rail. Four stacked sections, always in the same
+ * order, so the answer to "where am I" never moves:
+ *
+ *   Databases -- what you can query
+ *   Chats     -- conversations against the selected database
+ *   Saved     -- questions worth keeping
+ *   Schema    -- what the selected database actually contains
+ *
+ * Chats and Schema appear only once a database is selected, because neither
+ * means anything without one.
+ */
 export default function Sidebar({
-  connections,
-  activeConnectionId,
-  schema,
-  activeChatId,
-  chats,
-  savedQueries,
-  folders,
-  onSelectConnection,
-  onNewConnection,
-  onDeleteConnection,
-  onSelectChat,
-  onNewChat,
-  onOpenSavedQuery,
-  onDeleteSavedQuery,
-  onCreateFolder,
-  onDeleteFolder,
-  onMoveConnection,
-  canManageAccess,
-  onManageConnectionAccess,
-}: Props) {
-  const [creatingFolder, setCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-
-  const rootFolders = folders.filter((f) => f.parent_id === null);
-  const unfiledConnections = connections.filter((c) => !c.folder_id);
-
-  function handleCreateRootFolder(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newFolderName.trim()) return;
-    onCreateFolder(newFolderName.trim(), null);
-    setNewFolderName("");
-    setCreatingFolder(false);
-  }
-
-  return (
-    <aside className="w-72 shrink-0 border-r border-line bg-panel flex flex-col h-full">
-      <div className="p-4 border-b border-line flex items-center gap-3">
-         <PhantomLogo className="h-8 w-auto" />
-        <p className="text-xs text-slate-500">read-only, always</p>
-      </div>
-
-      <div className="p-3 border-b border-line space-y-1.5">
-        <button
-          onClick={onNewConnection}
-          className="w-full flex items-center gap-2 text-sm rounded-md border border-line bg-ink hover:border-accent/60 hover:text-accent-hover transition-colors px-3 py-2 text-left text-slate-300"
-        >
-          <Plus size={14} /> New connection
-        </button>
-        <button
-          onClick={() => setCreatingFolder(true)}
-          className="w-full flex items-center gap-2 text-xs rounded-md hover:bg-hover transition-colors px-3 py-1.5 text-left text-slate-500"
-        >
-          <FolderPlus size={13} /> New folder
-        </button>
-        {creatingFolder && (
-          <form onSubmit={handleCreateRootFolder} className="px-1">
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Folder name"
-              autoFocus
-              onBlur={() => !newFolderName && setCreatingFolder(false)}
-              className="w-full rounded-md bg-ink border border-line px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-accent/60"
-            />
-          </form>
-        )}
-      </div>
-
-      <div className="overflow-y-auto flex-1">
-        <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-slate-500">
-          Connections
-        </div>
-
-        {rootFolders.map((folder) => (
-          <FolderNode
-            key={folder.id}
-            folder={folder}
-            allFolders={folders}
-            allConnections={connections}
-            activeConnectionId={activeConnectionId}
-            depth={0}
-            onSelectConnection={onSelectConnection}
-            onDeleteConnection={onDeleteConnection}
-            onCreateFolder={onCreateFolder}
-            onDeleteFolder={onDeleteFolder}
-            onMoveConnection={onMoveConnection}
-            canManageAccess={canManageAccess}
-            onManageConnectionAccess={onManageConnectionAccess}
-          />
-        ))}
-
-        {unfiledConnections.length === 0 && rootFolders.length === 0 && (
-          <p className="px-3 py-2 text-xs text-slate-600">None yet.</p>
-        )}
-        {unfiledConnections.map((c) => (
-          <ConnectionRow
-            key={c.id}
-            connection={c}
-            allFolders={folders}
-            isActive={activeConnectionId === c.id}
-            onSelect={() => onSelectConnection(c.id)}
-            onDelete={() => {
-              if (confirm(`Delete connection "${c.name}"?`)) {
-                onDeleteConnection(c.id);
-              }
-            }}
-            onMove={(folderId) => onMoveConnection(c.id, folderId)}
-            canManageAccess={canManageAccess}
-            onManageAccess={() => onManageConnectionAccess(c)}
-          />
-        ))}
-
-        {activeConnectionId && (
-          <div className="mt-2">
-            <div className="px-3 pt-4 pb-1 flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-wider text-slate-500">Recent chats</span>
-              <button onClick={onNewChat} className="flex items-center gap-1 text-xs text-accent-hover hover:underline">
-                <Plus size={12} /> New Chat
-              </button>
-            </div>
-            {chats.length === 0 && (
-              <p className="px-3 py-1 text-xs text-slate-600">No chats yet.</p>
-            )}
-            {chats.map((chat) => (
-              <button
-                key={chat.id}
-                onClick={() => onSelectChat(chat.id)}
-                className={`w-full text-left px-3 py-2 text-sm border-l-2 transition-colors ${
-                  activeChatId === chat.id
-                    ? "border-accent bg-ink text-slate-100"
-                    : "border-transparent text-slate-400 hover:bg-hover"
-                }`}
-              >
-                <div className="truncate">{chat.title}</div>
-                <div className="text-xs text-slate-600">{relativeDay(chat.last_active_at)}</div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-2">
-          <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-slate-500">
-            Saved
-          </div>
-          {savedQueries.length === 0 ? (
-            <p className="px-3 py-1 text-xs text-slate-600">No saved queries yet.</p>
-          ) : (
-            savedQueries.map((q) => (
-              <SavedQueryRow
-                key={q.id}
-                query={q}
-                onOpen={() => onOpenSavedQuery(q)}
-                onDelete={() => {
-                  if (confirm(`Delete saved query "${q.name}"?`)) {
-                    onDeleteSavedQuery(q.id);
-                  }
-                }}
-              />
-            ))
-          )}
-        </div>
-
-        {schema && (
-          <div className="mt-3">
-            <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-slate-500">
-              Tables
-            </div>
-            {schema.tables.map((t) => (
-              <details key={t.table_name} className="px-3 py-1.5 group">
-                <summary className="text-sm text-slate-300 cursor-pointer list-none flex items-center gap-1.5">
-                  <ChevronRight size={12} className="text-slate-600 group-open:rotate-90 transition-transform" />
-                  <span className="font-mono">{t.table_name}</span>
-                </summary>
-                <div className="pl-5 pt-1.5 pb-1 space-y-0.5">
-                  {t.columns.map((col) => (
-                    <div key={col.name} className="text-xs text-slate-500 font-mono flex items-center gap-2">
-                      <span className="text-slate-400">{col.name}</span>
-                      <span>{col.data_type}</span>
-                      {col.is_primary_key && (
-                        <span className="flex items-center gap-0.5 text-warn">
-                          <Key size={10} /> PK
-                        </span>
-                      )}
-                      {col.is_foreign_key && (
-                        <span className="flex items-center gap-0.5 text-accent-hover">
-                          <Link2 size={10} /> FK
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </details>
-            ))}
-          </div>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function FolderNode({
-  folder, allFolders, allConnections, activeConnectionId, depth,
-  onSelectConnection, onDeleteConnection, onCreateFolder, onDeleteFolder, onMoveConnection,
+  connections, activeConnectionId, schema, activeChatId, chats, savedQueries,
+  connectionsLoading, onSelectConnection, onNewConnection, onDeleteConnection,
+  onSelectChat, onNewChat, onOpenSavedQuery, onDeleteSavedQuery,
   canManageAccess, onManageConnectionAccess,
-}: {
-  folder: Folder;
-  allFolders: Folder[];
-  allConnections: Connection[];
-  activeConnectionId: string | null;
-  depth: number;
-  onSelectConnection: (id: string) => void;
-  onDeleteConnection: (id: string) => void;
-  onCreateFolder: (name: string, parentId: string | null) => void;
-  onDeleteFolder: (folderId: string) => void;
-  onMoveConnection: (connectionId: string, folderId: string | null) => void;
-  canManageAccess: boolean;
-  onManageConnectionAccess: (connection: Connection) => void;
-}) {
-  const [open, setOpen] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [creatingSubfolder, setCreatingSubfolder] = useState(false);
-  const [newSubfolderName, setNewSubfolderName] = useState("");
-
-  const childFolders = allFolders.filter((f) => f.parent_id === folder.id);
-  const childConnections = allConnections.filter((c) => c.folder_id === folder.id);
-
-  function handleCreateSubfolder(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newSubfolderName.trim()) return;
-    onCreateFolder(newSubfolderName.trim(), folder.id);
-    setNewSubfolderName("");
-    setCreatingSubfolder(false);
-  }
-
+}: Props) {
   return (
-    <div>
-      <div
-        className="group relative flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-300 hover:bg-hover rounded-md transition-colors"
-        style={{ paddingLeft: `${12 + depth * 14}px` }}
-      >
-        <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 flex-1 min-w-0">
-          <ChevronRight size={12} className={`text-slate-600 transition-transform shrink-0 ${open ? "rotate-90" : ""}`} />
-          {open ? <FolderOpen size={13} className="text-accent-hover shrink-0" /> : <FolderIcon size={13} className="text-slate-500 shrink-0" />}
-          <span className="truncate">{folder.name}</span>
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-          className="text-slate-600 hover:text-slate-300 p-1 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity shrink-0"
-        >
-          <MoreHorizontal size={14} />
-        </button>
+    <div className="flex flex-col h-full min-h-0">
+      <nav className="flex-1 overflow-y-auto min-h-0 px-2 py-3 space-y-5" aria-label="Workspace">
+        {/* -------------------------------------------------- Databases -- */}
+        <section>
+          <SidebarHeading
+            action={
+              <IconAction label="Add a database connection" onClick={onNewConnection}>
+                <Plus size={14} />
+              </IconAction>
+            }
+          >
+            Databases
+          </SidebarHeading>
 
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-2 top-7 z-50 bg-elevated border border-line rounded-md shadow-lg py-1 min-w-36">
-              <button
-                onClick={() => { setMenuOpen(false); setCreatingSubfolder(true); setOpen(true); }}
-                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover"
-              >
-                <FolderPlus size={14} /> New subfolder
-              </button>
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  if (confirm(`Delete folder "${folder.name}"? Connections inside will become unfiled.`)) {
-                    onDeleteFolder(folder.id);
-                  }
-                }}
-                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-danger hover:bg-hover"
-              >
-                <Trash2 size={14} /> Delete folder
-              </button>
+          {connectionsLoading ? (
+            <div className="space-y-1.5 px-1" aria-hidden>
+              <div className="skeleton h-11 rounded-md" />
+              <div className="skeleton h-11 rounded-md" />
             </div>
-          </>
-        )}
-      </div>
-
-      {open && (
-        <div>
-          {creatingSubfolder && (
-            <form onSubmit={handleCreateSubfolder} style={{ paddingLeft: `${26 + depth * 14}px` }} className="pr-3 py-1">
-              <input
-                type="text"
-                value={newSubfolderName}
-                onChange={(e) => setNewSubfolderName(e.target.value)}
-                placeholder="Folder name"
-                autoFocus
-                onBlur={() => !newSubfolderName && setCreatingSubfolder(false)}
-                className="w-full rounded-md bg-ink border border-line px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-accent/60"
-              />
-            </form>
+          ) : connections.length === 0 ? (
+            <div className="mx-1 rounded-lg border border-dashed border-line px-3 py-4 text-center">
+              <p className="text-xs text-muted leading-relaxed">No databases connected yet.</p>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Plus size={13} />}
+                onClick={onNewConnection}
+                className="mt-2.5"
+              >
+                Connect a database
+              </Button>
+            </div>
+          ) : (
+            <ul className="space-y-0.5">
+              {connections.map((c) => (
+                <li key={c.id}>
+                  <ConnectionRow
+                    connection={c}
+                    isActive={activeConnectionId === c.id}
+                    onSelect={() => onSelectConnection(c.id)}
+                    onDelete={() => onDeleteConnection(c.id)}
+                    canManageAccess={canManageAccess}
+                    onManageAccess={() => onManageConnectionAccess(c)}
+                  />
+                </li>
+              ))}
+            </ul>
           )}
-          {childFolders.map((child) => (
-            <FolderNode
-              key={child.id}
-              folder={child}
-              allFolders={allFolders}
-              allConnections={allConnections}
-              activeConnectionId={activeConnectionId}
-              depth={depth + 1}
-              onSelectConnection={onSelectConnection}
-              onDeleteConnection={onDeleteConnection}
-              onCreateFolder={onCreateFolder}
-              onDeleteFolder={onDeleteFolder}
-              onMoveConnection={onMoveConnection}
-              canManageAccess={canManageAccess}
-              onManageConnectionAccess={onManageConnectionAccess}
-            />
-          ))}
-          {childConnections.map((c) => (
-            <div key={c.id} style={{ paddingLeft: `${depth * 14}px` }}>
-              <ConnectionRow
-                connection={c}
-                allFolders={allFolders}
-                isActive={activeConnectionId === c.id}
-                onSelect={() => onSelectConnection(c.id)}
-                onDelete={() => {
-                  if (confirm(`Delete connection "${c.name}"?`)) {
-                    onDeleteConnection(c.id);
-                  }
-                }}
-                onMove={(folderId) => onMoveConnection(c.id, folderId)}
-                canManageAccess={canManageAccess}
-                onManageAccess={() => onManageConnectionAccess(c)}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+        </section>
+
+        {/* ------------------------------------------------------ Chats -- */}
+        {activeConnectionId && (
+          <section>
+            <SidebarHeading
+              action={
+                <IconAction label="Start a new chat" onClick={onNewChat}>
+                  <MessageSquarePlus size={14} />
+                </IconAction>
+              }
+            >
+              Chats
+            </SidebarHeading>
+
+            {chats.length === 0 ? (
+              <p className="px-3 py-1.5 text-xs text-faint">
+                No chats yet. Start one to ask a question.
+              </p>
+            ) : (
+              <ul className="space-y-0.5">
+                {chats.map((chat) => {
+                  const isActive = activeChatId === chat.id;
+                  return (
+                    <li key={chat.id}>
+                      <button
+                        onClick={() => onSelectChat(chat.id)}
+                        aria-current={isActive ? "page" : undefined}
+                        className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                          isActive
+                            ? "bg-accent/10 text-primary"
+                            : "text-secondary hover:bg-hover hover:text-primary"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          {isActive && (
+                            <span className="w-1 h-3.5 rounded-full bg-accent shrink-0" aria-hidden />
+                          )}
+                          <span className="truncate text-sm">{chat.title}</span>
+                        </span>
+                        <span className="block text-[11px] text-faint mt-0.5">
+                          {relativeDay(chat.last_active_at)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        )}
+
+        {/* ------------------------------------------------------ Saved -- */}
+        <section>
+          <SidebarHeading>Saved queries</SidebarHeading>
+          {savedQueries.length === 0 ? (
+            <p className="px-3 py-1.5 text-xs text-faint">
+              Save a question from a chat to reuse it later.
+            </p>
+          ) : (
+            <ul className="space-y-0.5">
+              {savedQueries.map((q) => (
+                <li key={q.id}>
+                  <SavedQueryRow
+                    query={q}
+                    onOpen={() => onOpenSavedQuery(q)}
+                    onDelete={() => onDeleteSavedQuery(q.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* ----------------------------------------------------- Schema -- */}
+        {schema && schema.tables.length > 0 && (
+          <section>
+            <SidebarHeading>
+              {`Schema · ${schema.tables.length} table${schema.tables.length !== 1 ? "s" : ""}`}
+            </SidebarHeading>
+            <ul>
+              {schema.tables.map((t) => (
+                <li key={t.table_name}>
+                  <details className="group">
+                    <summary className="flex items-center gap-1.5 px-3 py-1.5 rounded-md cursor-pointer list-none text-sm text-secondary hover:bg-hover hover:text-primary transition-colors">
+                      <ChevronRight
+                        size={12}
+                        className="text-faint group-open:rotate-90 transition-transform shrink-0"
+                        aria-hidden
+                      />
+                      <Table2 size={12} className="text-faint shrink-0" aria-hidden />
+                      <span className="font-mono text-xs truncate">{t.table_name}</span>
+                    </summary>
+                    <ul className="pl-8 pr-3 pt-1 pb-1.5 space-y-1">
+                      {t.columns.map((col) => (
+                        <li key={col.name} className="flex items-baseline gap-2 text-[11px] font-mono">
+                          <span className="text-secondary truncate">{col.name}</span>
+                          <span className="text-faint truncate">{col.data_type}</span>
+                          {col.is_primary_key && (
+                            <span className="flex items-center gap-0.5 text-warn shrink-0" title="Primary key">
+                              <Key size={9} aria-hidden /> PK
+                            </span>
+                          )}
+                          {col.is_foreign_key && (
+                            <span
+                              className="flex items-center gap-0.5 text-info shrink-0"
+                              title={col.references ? `References ${col.references}` : "Foreign key"}
+                            >
+                              <Link2 size={9} aria-hidden /> FK
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </nav>
+
+      <div className="shrink-0 border-t border-border-subtle px-3 py-2.5">
+        <p className="flex items-center gap-1.5 text-[11px] text-faint">
+          <ShieldCheck size={12} className="text-accent shrink-0" aria-hidden />
+          Read-only sessions, always
+        </p>
+      </div>
     </div>
   );
 }
 
+function SidebarHeading({
+  action, children,
+}: {
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 px-3 mb-1.5 h-6">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-faint truncate">
+        {children}
+      </h2>
+      {action}
+    </div>
+  );
+}
+
+function IconAction({
+  label, onClick, children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-faint hover:text-primary hover:bg-hover transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
 function ConnectionRow({
-  connection, allFolders, isActive, onSelect, onDelete, onMove,
-  canManageAccess, onManageAccess,
+  connection, isActive, onSelect, onDelete, canManageAccess, onManageAccess,
 }: {
   connection: Connection;
-  allFolders: Folder[];
   isActive: boolean;
   onSelect: () => void;
   onDelete: () => void;
-  onMove: (folderId: string | null) => void;
   canManageAccess: boolean;
   onManageAccess: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [moveSubmenuOpen, setMoveSubmenuOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [health, setHealth] = useState<{
     healthy: boolean; version: string | null; latency_ms: number | null;
@@ -386,11 +280,15 @@ function ConnectionRow({
   } | null>(null);
 
   async function handleCheckHealth() {
-    setMenuOpen(false);
     setChecking(true);
+    setHealth(null);
     try {
-      const result = await api.checkConnectionHealth(connection.id);
-      setHealth(result);
+      setHealth(await api.checkConnectionHealth(connection.id));
+    } catch (err) {
+      setHealth({
+        healthy: false, version: null, latency_ms: null, ssl_enabled: null,
+        error: err instanceof Error ? err.message : "Could not reach this database.",
+      });
     } finally {
       setChecking(false);
     }
@@ -398,129 +296,121 @@ function ConnectionRow({
 
   return (
     <div
-      className={`group relative border-l-2 rounded-md transition-colors ${
-        isActive ? "border-accent bg-accent/10" : "border-transparent hover:bg-hover"
+      className={`group relative rounded-md transition-colors ${
+        isActive ? "bg-accent/10" : "hover:bg-hover"
       }`}
     >
-      <button onClick={onSelect} className="w-full text-left px-3 py-2.5 pr-8 text-sm">
-        <div className="flex items-center gap-1.5 truncate">
-          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
-          <span className={`truncate ${isActive ? "text-slate-100" : "text-slate-400"}`}>
+      <button
+        onClick={onSelect}
+        aria-current={isActive ? "true" : undefined}
+        className="w-full text-left pl-3 pr-9 py-2 rounded-md"
+      >
+        <span className="flex items-center gap-1.5">
+          {isActive && <span className="w-1 h-3.5 rounded-full bg-accent shrink-0" aria-hidden />}
+          <Database
+            size={13}
+            className={`shrink-0 ${isActive ? "text-accent" : "text-faint"}`}
+            aria-hidden
+          />
+          <span className={`truncate text-sm ${isActive ? "text-primary font-medium" : "text-secondary"}`}>
             {connection.name}
           </span>
-          {/* Restricted is called out in warn; team is the quiet default so
-              the common case doesn't become visual noise on every row. */}
-          {connection.access_level === "restricted" ? (
+          {connection.access_level === "restricted" && (
             <Lock size={10} className="text-warn shrink-0" aria-label="Restricted access" />
-          ) : (
-            <Users size={10} className="text-slate-600 shrink-0" aria-label="Team access" />
           )}
-        </div>
-        <div className="text-xs text-slate-600 truncate font-mono">
+        </span>
+        <span className="block text-[11px] text-faint truncate font-mono mt-0.5">
           {connection.database}@{connection.host}
-        </div>
+        </span>
       </button>
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setMenuOpen(!menuOpen);
-        }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-300 p-1 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"
-      >
-        <MoreHorizontal size={15} />
-      </button>
-
-      {menuOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => { setMenuOpen(false); setMoveSubmenuOpen(false); }} />
-          <div className="absolute right-2 top-9 z-50 bg-elevated border border-line rounded-md shadow-lg py-1 min-w-40">
+      <div className="absolute right-1.5 top-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100 transition-opacity">
+        <Menu
+          trigger={(props) => (
             <button
-              onClick={handleCheckHealth}
-              disabled={checking}
-              className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover disabled:opacity-50"
+              {...props}
+              aria-label={`Actions for ${connection.name}`}
+              className="w-7 h-7 rounded flex items-center justify-center text-faint hover:text-primary hover:bg-hover transition-colors"
             >
-              <Activity size={14} /> {checking ? "Checking…" : "Test connection"}
+              <MoreHorizontal size={15} />
             </button>
-
-            {canManageAccess && (
-              <button
-                onClick={() => { setMenuOpen(false); onManageAccess(); }}
-                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover"
-              >
-                <ShieldCheck size={14} /> Manage access
-              </button>
-            )}
-
-            <div className="relative">
-              <button
-                onClick={(e) => { e.stopPropagation(); setMoveSubmenuOpen(!moveSubmenuOpen); }}
-                className="w-full flex items-center justify-between gap-2 text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover"
-              >
-                <span className="flex items-center gap-2"><FolderIcon size={14} /> Move to folder</span>
-                <ChevronRight size={12} />
-              </button>
-              {moveSubmenuOpen && (
-                <div className="absolute left-full top-0 ml-1 bg-elevated border border-line rounded-md shadow-lg py-1 min-w-36 max-h-48 overflow-y-auto">
-                  {connection.folder_id && (
-                    <button
-                      onClick={() => { onMove(null); setMenuOpen(false); setMoveSubmenuOpen(false); }}
-                      className="w-full text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover"
-                    >
-                      Unfiled
-                    </button>
-                  )}
-                  {allFolders.length === 0 ? (
-                    <p className="px-3 py-1.5 text-xs text-faint">No folders yet.</p>
-                  ) : (
-                    allFolders.map((f) => (
-                      <button
-                        key={f.id}
-                        onClick={() => { onMove(f.id); setMenuOpen(false); setMoveSubmenuOpen(false); }}
-                        disabled={connection.folder_id === f.id}
-                        className="w-full text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover disabled:opacity-40"
-                      >
-                        {f.name}
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="my-1 border-t border-line" />
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                onDelete();
-              }}
-              className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-danger hover:bg-hover"
-            >
-              <Trash2 size={14} /> Delete
-            </button>
-          </div>
-        </>
-      )}
-
-      {health && (
-        <div className="mx-3 mb-2 px-2.5 py-2 rounded-md bg-ink border border-line text-xs space-y-1">
-          <div className="flex items-center justify-between">
-            <span className={health.healthy ? "text-accent-hover" : "text-danger"}>
-              {health.healthy ? "● Healthy" : "● Unreachable"}
-            </span>
-            <button onClick={() => setHealth(null)} className="text-faint hover:text-secondary">
-              <X size={12} />
-            </button>
-          </div>
-          {health.healthy ? (
-            <>
-              <div className="text-slate-500">Latency: {health.latency_ms}ms</div>
-              <div className="text-slate-500">SSL: {health.ssl_enabled ? "on" : "off"}</div>
-              {health.version && <div className="text-slate-500 truncate">{health.version}</div>}
-            </>
-          ) : (
-            <div className="text-danger/80 truncate">{health.error}</div>
           )}
+        >
+          {(close) => (
+            <>
+              <MenuItem
+                icon={<Activity size={14} />}
+                disabled={checking}
+                onClick={() => { close(); handleCheckHealth(); }}
+              >
+                {checking ? "Testing…" : "Test connection"}
+              </MenuItem>
+              {canManageAccess && (
+                <MenuItem
+                  icon={connection.access_level === "restricted" ? <Lock size={14} /> : <Users size={14} />}
+                  onClick={() => { close(); onManageAccess(); }}
+                >
+                  Manage access
+                </MenuItem>
+              )}
+              <MenuSeparator />
+              <MenuItem
+                danger
+                icon={<Trash2 size={14} />}
+                onClick={() => {
+                  close();
+                  if (confirm(`Delete the connection "${connection.name}"? Chats that used it keep their history.`)) {
+                    onDelete();
+                  }
+                }}
+              >
+                Delete connection
+              </MenuItem>
+            </>
+          )}
+        </Menu>
+      </div>
+
+      {(checking || health) && (
+        <div className="mx-3 mb-2 px-2.5 py-2 rounded-md bg-raised border border-line animate-fade-in">
+          {checking ? (
+            <StatusIndicator tone="busy" label="Testing connection…" pulse />
+          ) : health ? (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <StatusIndicator
+                  tone={health.healthy ? "ok" : "danger"}
+                  label={health.healthy ? "Reachable" : "Unreachable"}
+                />
+                <button
+                  onClick={() => setHealth(null)}
+                  aria-label="Dismiss connection test result"
+                  className="text-faint hover:text-primary shrink-0"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+              {health.healthy ? (
+                <dl className="mt-1.5 space-y-0.5 text-[11px] text-faint">
+                  <div className="flex justify-between gap-2">
+                    <dt>Latency</dt>
+                    <dd className="font-mono text-muted">{health.latency_ms}ms</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt>SSL</dt>
+                    <dd className="font-mono text-muted">{health.ssl_enabled ? "on" : "off"}</dd>
+                  </div>
+                  {health.version && (
+                    <div className="truncate pt-0.5 text-muted" title={health.version}>
+                      {health.version}
+                    </div>
+                  )}
+                </dl>
+              ) : (
+                <p className="mt-1.5 text-[11px] text-danger/90 break-words">{health.error}</p>
+              )}
+            </>
+          ) : null}
         </div>
       )}
     </div>
@@ -534,53 +424,60 @@ function SavedQueryRow({
   onOpen: () => void;
   onDelete: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   return (
     <div className="group relative rounded-md hover:bg-hover transition-colors">
-      <button onClick={onOpen} className="w-full text-left px-3 py-2 pr-8 text-sm flex items-start gap-1.5">
-        <Bookmark size={12} className="text-accent-hover shrink-0 mt-0.5" />
-        <div className="min-w-0">
-          <div className="truncate text-slate-300">{query.name}</div>
-          <div className="text-xs text-slate-600 truncate">{query.question}</div>
-        </div>
+      <button onClick={onOpen} className="w-full text-left pl-3 pr-9 py-2 rounded-md">
+        <span className="flex items-center gap-1.5">
+          <Bookmark size={12} className="text-accent shrink-0" aria-hidden />
+          <span className="truncate text-sm text-secondary">{query.name}</span>
+        </span>
+        <span className="block text-[11px] text-faint truncate mt-0.5">{query.question}</span>
       </button>
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setMenuOpen(!menuOpen);
-        }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-300 p-1 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"
-      >
-        <MoreHorizontal size={15} />
-      </button>
-
-      {menuOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-2 top-9 z-50 bg-elevated border border-line rounded-md shadow-lg py-1 min-w-30">
+      <div className="absolute right-1.5 top-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100 transition-opacity">
+        <Menu
+          trigger={(props) => (
             <button
-              onClick={() => {
-                setMenuOpen(false);
-                onDelete();
-              }}
-              className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-danger hover:bg-hover"
+              {...props}
+              aria-label={`Actions for saved query ${query.name}`}
+              className="w-7 h-7 rounded flex items-center justify-center text-faint hover:text-primary hover:bg-hover transition-colors"
             >
-              <Trash2 size={14} /> Delete
+              <MoreHorizontal size={15} />
             </button>
-          </div>
-        </>
-      )}
+          )}
+        >
+          {(close) => (
+            <MenuItem
+              danger
+              icon={<Trash2 size={14} />}
+              onClick={() => {
+                close();
+                if (confirm(`Delete the saved query "${query.name}"?`)) onDelete();
+              }}
+            >
+              Delete
+            </MenuItem>
+          )}
+        </Menu>
+      </div>
     </div>
+  );
+}
+
+/** Exported so the header can label a connection the same way the rail does. */
+export function AccessBadge({ level }: { level: Connection["access_level"] }) {
+  return level === "restricted" ? (
+    <Badge tone="warn" icon={<Lock size={9} />}>Restricted</Badge>
+  ) : (
+    <Badge tone="neutral" icon={<Users size={9} />}>Team</Badge>
   );
 }
 
 function relativeDay(isoString: string): string {
   const date = new Date(isoString + "Z");
-  const today = new Date();
-  const diffDays = Math.floor((today.getTime() - date.getTime()) / 86400000);
+  const diffDays = Math.floor((Date.now() - date.getTime()) / 86400000);
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

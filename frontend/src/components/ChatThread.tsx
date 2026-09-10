@@ -1,37 +1,50 @@
 import { useState, useEffect, useRef } from "react";
-import { Copy, Pencil, Trash2, Sparkles, MoreHorizontal, Play, Check, AlertTriangle, ChevronDown, ChevronRight, MessageCircleQuestion, Bookmark } from "lucide-react";
+import {
+  Bookmark, Copy, MessageCircleQuestion, MoreHorizontal, Pencil, RotateCw,
+  Sparkles, Trash2,
+} from "lucide-react";
 import type { ChatTurn, ValidationResult, ExecuteQueryResponse } from "../type";
 import { api } from "../api/client";
 import ResultsTable from "./ResultsTable";
-
+import SqlReview from "./SqlReview";
+import Composer from "./Composer";
+import {
+  Alert, Badge, Button, Dialog, Input, Menu, MenuItem, MenuSeparator, Skeleton,
+} from "./ui";
+import { EXAMPLE_QUESTIONS } from "../utils/sql";
+import { resolveComposerMode } from "../utils/composerMode";
 
 interface Props {
   chatId: string;
   connectionId: string;
   workspaceId: string;
+  workspaceType: "personal" | "team";
+  connectionName?: string;
   dbType?: string;
   initialQuestion?: string;
   currentUserId: string;
-  onHeaderVisibilityChange?: (visible: boolean) => void;
 }
 
-export default function ChatThread({ chatId, connectionId, workspaceId, dbType, initialQuestion, currentUserId, onHeaderVisibilityChange }: Props) {
+export default function ChatThread({
+  chatId, connectionId, workspaceId, workspaceType, connectionName, dbType,
+  initialQuestion, currentUserId,
+}: Props) {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [question, setQuestion] = useState(initialQuestion ?? "");
   const [asking, setAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const lastScrollY = useRef(0);
   const turnsRef = useRef<ChatTurn[]>([]);
 
-
-  useEffect(() => { turnsRef.current = turns; }, [turns]);
+  useEffect(() => {
+    turnsRef.current = turns;
+  }, [turns]);
 
   useEffect(() => {
     setLoading(true);
-    api.getChatTurns(chatId)
+    api
+      .getChatTurns(chatId)
       .then(setTurns)
       .finally(() => setLoading(false));
   }, [chatId]);
@@ -39,26 +52,6 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns.length]);
-
-    useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    function handleScroll() {
-      const currentY = container!.scrollTop;
-      if (currentY <= 10) {
-        onHeaderVisibilityChange?.(true);
-      } else if (currentY < lastScrollY.current) {
-        onHeaderVisibilityChange?.(true);
-      } else if (currentY > lastScrollY.current) {
-        onHeaderVisibilityChange?.(false);
-      }
-      lastScrollY.current = currentY;
-    }
-
-    container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [onHeaderVisibilityChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,8 +79,8 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
       clearInterval(interval);
     };
   }, [chatId]);
-  async function handleAsk(e: React.FormEvent) {
-    e.preventDefault();
+
+  async function handleAsk() {
     if (!question.trim()) return;
     setAsking(true);
     setAskError(null);
@@ -96,7 +89,9 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
       setTurns((prev) => [...prev, turn]);
       setQuestion("");
     } catch (err) {
-      setAskError(err instanceof Error ? err.message : "Failed to generate SQL. Please try again.");
+      setAskError(
+        err instanceof Error ? err.message : "Failed to send. Please try again."
+      );
     } finally {
       setAsking(false);
     }
@@ -114,68 +109,159 @@ export default function ChatThread({ chatId, connectionId, workspaceId, dbType, 
     });
   }
 
+  /** Example chips prefill with the slash a team workspace needs, so the
+   *  suggestion actually reaches Phantom Query rather than the team. */
+  function applyExample(example: string) {
+    setQuestion(workspaceType === "team" ? `/${example}` : example);
+  }
+
+  const composerMode = resolveComposerMode(question, workspaceType);
+
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
-        <div className="px-6 py-6">
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="mx-auto w-full max-w-3xl px-3 sm:px-6 py-5 sm:py-6">
           {loading ? (
-            <p className="text-sm text-muted">Loading conversation…</p>
+            <ThreadSkeleton />
           ) : turns.length === 0 ? (
-            <p className="text-sm text-muted">Ask a question to start this chat.</p>
+            <EmptyThread
+              workspaceType={workspaceType}
+              connectionName={connectionName}
+              onPickExample={applyExample}
+            />
           ) : (
-            turns.map((turn, i) => (
-              <TurnBlock
-                key={turn.id}
-                turn={turn}
-                connectionId={connectionId}
-                workspaceId={workspaceId}
-                isFirst={i === 0}
-                dbType={dbType}
-                currentUserId={currentUserId}
-                onUpdate={(t) => setTurns((prev) => prev.map((p) => (p.id === t.id ? t : p)))}
-                onDelete={() => handleDeleteTurn(turn.id)}
-                onEdited={handleTurnEdited}
-              />
-            ))
+            <ol className="space-y-6">
+              {turns.map((turn) => (
+                <li key={turn.id}>
+                  <TurnBlock
+                    turn={turn}
+                    connectionId={connectionId}
+                    workspaceId={workspaceId}
+                    dbType={dbType}
+                    currentUserId={currentUserId}
+                    onUpdate={(t) =>
+                      setTurns((prev) => prev.map((p) => (p.id === t.id ? t : p)))
+                    }
+                    onDelete={() => handleDeleteTurn(turn.id)}
+                    onEdited={handleTurnEdited}
+                  />
+                </li>
+              ))}
+            </ol>
           )}
           <div ref={bottomRef} />
         </div>
       </div>
 
-      <div className="border-t border-border-subtle shrink-0">
-        <form onSubmit={handleAsk} className="px-6 py-4 space-y-2">
-          {askError && <p className="text-xs text-danger">{askError}</p>}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask Phantom about your data..."
-              disabled={asking}
-              className="flex-1 rounded-full bg-panel border border-border-subtle px-4 py-2.5 text-sm text-primary placeholder:text-faint focus:outline-none focus:border-accent/60 disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={asking || !question.trim()}
-              className="px-5 py-2.5 text-sm rounded-full bg-accent hover:bg-accent-hover text-white font-medium disabled:opacity-40 transition-colors"
-            >
-              {asking ? "Thinking…" : "Ask"}
-            </button>
-          </div>
-        </form>
+      <Composer
+        value={question}
+        onChange={setQuestion}
+        onSubmit={handleAsk}
+        workspaceType={workspaceType}
+        connectionName={connectionName}
+        busy={asking}
+        error={askError}
+        onDismissError={() => setAskError(null)}
+      />
+
+      {/* Announces the pending state to assistive tech without stealing focus. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {asking
+          ? composerMode === "query"
+            ? "Phantom Query is writing SQL for your question."
+            : "Sending your message."
+          : ""}
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- skeleton -- */
+
+function ThreadSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Loading conversation">
+      <div className="flex justify-end">
+        <Skeleton className="h-10 w-2/3 rounded-2xl" />
+      </div>
+      <div className="rounded-xl border border-line bg-panel p-4 space-y-3">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-24 w-full rounded-lg" />
+        <Skeleton className="h-9 w-40 rounded-lg" />
       </div>
     </div>
   );
 }
 
+/* ---------------------------------------------------------- empty state -- */
+
+function EmptyThread({
+  workspaceType, connectionName, onPickExample,
+}: {
+  workspaceType: "personal" | "team";
+  connectionName?: string;
+  onPickExample: (example: string) => void;
+}) {
+  return (
+    <div className="py-6 sm:py-10">
+      <div className="flex items-center gap-2.5 mb-2">
+        <span
+          className="w-8 h-8 rounded-lg bg-accent/12 border border-accent/25 flex items-center justify-center text-accent"
+          aria-hidden
+        >
+          <Sparkles size={15} />
+        </span>
+        <h2 className="text-base font-semibold text-primary">
+          Ask a question about {connectionName ?? "your data"}
+        </h2>
+      </div>
+
+      <p className="text-sm text-muted leading-relaxed max-w-xl">
+        Describe what you want to know in plain English. Phantom Query writes the SQL,
+        checks it is read-only, and shows it to you — nothing touches the database until
+        you press Run.
+        {workspaceType === "team" && (
+          <>
+            {" "}
+            In this shared workspace, start your message with{" "}
+            <code className="font-mono text-accent-text">/</code> to ask Phantom Query;
+            anything else goes to your teammates.
+          </>
+        )}
+      </p>
+
+      <div className="mt-6">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-faint mb-2.5">
+          Try one of these
+        </p>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {EXAMPLE_QUESTIONS.map((example) => (
+            <li key={example}>
+              <button
+                onClick={() => onPickExample(example)}
+                className="w-full text-left px-3 py-2.5 rounded-lg border border-line bg-panel
+                  text-sm text-secondary hover:border-accent/45 hover:text-primary hover:bg-hover
+                  transition-colors"
+              >
+                {example}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ one turn -- */
+
 function TurnBlock({
-  turn, connectionId, workspaceId, dbType, isFirst, currentUserId, onUpdate, onDelete, onEdited,
+  turn, connectionId, workspaceId, dbType, currentUserId, onUpdate, onDelete, onEdited,
 }: {
   turn: ChatTurn;
   connectionId: string;
   workspaceId: string;
   dbType?: string;
-  isFirst: boolean;
   currentUserId: string;
   onUpdate: (t: ChatTurn) => void;
   onDelete: () => void;
@@ -184,72 +270,46 @@ function TurnBlock({
   const isMessage = turn.kind === "message";
   const isOwn = !turn.author_user_id || turn.author_user_id === currentUserId;
 
-
   // — Query-only state —
-  const [resultsCollapsed, setResultsCollapsed] = useState(true);
   const [sql, setSql] = useState(turn.edited_sql || turn.generated_sql || "");
-  const [editingSql, setEditingSql] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [validating, setValidating] = useState(false);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [results, setResults] = useState<ExecuteQueryResponse | null>(null);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explaining, setExplaining] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saved, setSaved] = useState(false);
 
   // — Shared state —
-  const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(false);
   const [editText, setEditText] = useState(turn.question);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  async function handleSaveQuery() {
-    const name = prompt("Name this saved query:", turn.question.slice(0, 50));
-    if (!name) return;
-    setSaving(true);
-    try {
-      await api.saveQuery(connectionId, workspaceId, name, turn.question, sql);
-      setSaved(true);
-      setMenuOpen(false);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save query.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleExplain() {
-    setExplaining(true);
-    try {
-      const res = await api.explainSql(sql);
-      setExplanation(res.explanation);
-    } catch (err) {
-      setExplanation(err instanceof Error ? err.message : "Failed to explain query.");
-    } finally {
-      setExplaining(false);
-    }
-  }
-
   useEffect(() => {
     if (isMessage) return;
     setSql(turn.edited_sql || turn.generated_sql || "");
     setResults(null);
     setRunError(null);
-    setEditingSql(false);
     setExplanation(null);
   }, [turn.generated_sql, turn.edited_sql, isMessage]);
 
   useEffect(() => {
     if (isMessage || !sql) return;
+    setValidating(true);
     const timeout = setTimeout(() => {
-      api.validateSql(connectionId, sql).then(setValidation).catch(() => setValidation(null));
+      api
+        .validateSql(connectionId, sql)
+        .then(setValidation)
+        .catch(() => setValidation(null))
+        .finally(() => setValidating(false));
     }, 400);
     return () => clearTimeout(timeout);
-  }, [sql, isMessage]);
+  }, [sql, isMessage, connectionId]);
 
   async function handleRun() {
     setRunning(true);
@@ -257,7 +317,6 @@ function TurnBlock({
     try {
       const res = await api.executeSql(connectionId, sql, turn.question);
       setResults(res);
-      setResultsCollapsed(false);
       const updated = await api.updateTurn(turn.id, {
         edited_sql: sql !== turn.generated_sql ? sql : undefined,
         executed: true,
@@ -285,30 +344,38 @@ function TurnBlock({
     }
   }
 
+  async function handleExplain() {
+    setExplaining(true);
+    try {
+      const res = await api.explainSql(sql);
+      setExplanation(res.explanation);
+    } catch (err) {
+      setExplanation(err instanceof Error ? err.message : "Failed to explain query.");
+    } finally {
+      setExplaining(false);
+    }
+  }
+
+  async function handleSaveQuery(name: string) {
+    await api.saveQuery(connectionId, workspaceId, name, turn.question, sql);
+    setSaved(true);
+    setSaveDialogOpen(false);
+  }
+
   async function handleDeleteTurn() {
-    if (!confirm("Delete this message?")) return;
+    if (!confirm("Delete this message? This can't be undone.")) return;
     setDeleting(true);
     try {
       await api.deleteTurn(turn.id);
       onDelete();
-    } finally {
+    } catch {
       setDeleting(false);
     }
   }
 
-  function handleCopySql () {
-    navigator.clipboard.writeText(sql);
-    setMenuOpen(false);
-  }
-
-  function handleCopyQuestion() {
-    navigator.clipboard.writeText(turn.question);
-    setMenuOpen(false);
-  }
-
   async function handleSaveEdit() {
     if (!editText.trim()) return;
-    if (!confirm("This will regenerate this message and remove everything after it. Continue?")) return;
+    if (!confirm("This regenerates the answer and removes everything after it. Continue?")) return;
     setSavingEdit(true);
     setEditError(null);
     try {
@@ -322,157 +389,333 @@ function TurnBlock({
     }
   }
 
-  
-
-  return (
-    <div className={`${!isFirst ? "pt-6 mt-6" : ""} ${deleting ? "opacity-40 pointer-events-none" : ""}`}>
-     {/* User bubble */}
-<div className={`flex ${isOwn ? "justify-end" : "justify-start"} mb-4`}>
-  <div className="max-w-[85%]">
-    {editingQuestion && !isMessage ? (
-      <div className="bg-panel border border-border-subtle rounded-2xl rounded-br-sm px-4 py-3 space-y-2">
-        <textarea
-          value={editText}
-          onChange={(e) => setEditText(e.target.value)}
-          rows={2}
-          className="w-full bg-transparent text-sm text-primary focus:outline-none resize-none"
+  /* ------------------------------------------------- plain team message -- */
+  if (isMessage) {
+    return (
+      <div className={deleting ? "opacity-40 pointer-events-none" : undefined}>
+        <MessageBubble
+          author={isOwn ? "You" : turn.author_name ?? "Unknown"}
+          isOwn={isOwn}
+          text={turn.question}
+          timestamp={turn.created_at}
+          onDelete={isOwn ? handleDeleteTurn : undefined}
         />
-        <div className="flex gap-3 items-center justify-end">
-          {editError && <p className="text-xs text-danger mr-auto">{editError}</p>}
-          <button onClick={() => { setEditingQuestion(false); setEditText(turn.question); setEditError(null); }} className="text-xs text-muted hover:text-secondary">
-            Cancel
-          </button>
-          <button onClick={handleSaveEdit} disabled={savingEdit} className="text-xs px-2.5 py-1 rounded-md bg-accent hover:bg-accent-hover text-white disabled:opacity-50">
-            {savingEdit ? "Regenerating…" : "Save"}
-          </button>
-        </div>
       </div>
-    ) : (
-      <div className={`bg-panel px-4 py-2.5 ${isOwn ? "rounded-2xl rounded-br-sm" : "rounded-2xl rounded-bl-sm"}`}>
-        <p className="text-[11px] text-faint font-medium mb-0.5">
-          {isOwn ? "You" : (turn.author_name ?? "Unknown")}
-        </p>
-        <p className="text-sm text-primary leading-relaxed">{turn.question}</p>
-      </div>
-    )}
-  </div>
-</div>
+    );
+  }
 
-      {/* Message turns: no Phantom response box */}
-      {isMessage ? (
-        <></>
+  /* ------------------------------------------------------- query turn -- */
+  return (
+    <div className={`space-y-3 ${deleting ? "opacity-40 pointer-events-none" : ""}`}>
+      {/* The question, prominent -- it is what the user actually cares about. */}
+      {editingQuestion ? (
+        <div className="rounded-xl border border-accent/45 bg-panel p-3 space-y-2.5">
+          <label htmlFor={`edit-${turn.id}`} className="block text-xs font-medium text-secondary">
+            Rewrite your question
+          </label>
+          <textarea
+            id={`edit-${turn.id}`}
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            rows={2}
+            autoFocus
+            className="w-full rounded-md bg-raised border border-line px-3 py-2 text-sm
+              text-primary focus:outline-none focus:border-accent resize-y"
+          />
+          {editError && <p className="text-xs text-danger">{editError}</p>}
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditingQuestion(false);
+                setEditText(turn.question);
+                setEditError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" variant="primary" loading={savingEdit} onClick={handleSaveEdit}>
+              Regenerate
+            </Button>
+          </div>
+        </div>
       ) : (
-        /* Query turns: full Phantom response */
-        <div className="relative rounded-2xl rounded-tl-sm border border-border-subtle bg-panel px-5 py-4">
-          <div className="absolute right-3 top-3">
-            <button onClick={() => setMenuOpen(!menuOpen)} className="text-faint hover:text-secondary p-1">
-              <MoreHorizontal size={16} />
-            </button>
-            {menuOpen && (
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-faint mb-1">
+              {isOwn ? "You asked" : `${turn.author_name ?? "Someone"} asked`}
+            </p>
+            <h2 className="text-base sm:text-lg font-semibold text-primary leading-snug break-words">
+              {turn.question}
+            </h2>
+          </div>
+
+          <Menu
+            trigger={(props) => (
+              <button
+                {...props}
+                aria-label="Query actions"
+                className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center
+                  text-faint hover:text-primary hover:bg-hover transition-colors"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            )}
+          >
+            {(close) => (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-6 z-50 bg-elevated border border-border-subtle rounded-lg shadow-lg py-1 min-w-36">
-                  <button onClick={handleCopyQuestion} className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover">
-                    <Copy size={14} /> Copy question
-                  </button>
-                  <button onClick={handleCopySql} className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover">
-                    <Copy size={14} /> Copy SQL
-                  </button>
-                  <button onClick={() => { setMenuOpen(false); setEditingQuestion(true); }} className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover">
-                    <Pencil size={14} /> Edit
-                  </button>
-                  <button onClick={handleSaveQuery} disabled={saving} className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-secondary hover:bg-hover disabled:opacity-50">
-                    <Bookmark size={14} /> {saved ? "Saved" : saving ? "Saving…" : "Save query"}
-                  </button>
-                  <div className="my-1 border-t border-border-subtle" />
-                  <button onClick={() => { setMenuOpen(false); handleDeleteTurn(); }} className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-danger hover:bg-hover">
-                    <Trash2 size={14} /> Delete
-                  </button>
-                </div>
+                <MenuItem
+                  icon={<Copy size={14} />}
+                  onClick={() => { navigator.clipboard.writeText(turn.question); close(); }}
+                >
+                  Copy question
+                </MenuItem>
+                <MenuItem
+                  icon={<Copy size={14} />}
+                  onClick={() => { navigator.clipboard.writeText(sql); close(); }}
+                >
+                  Copy SQL
+                </MenuItem>
+                <MenuItem
+                  icon={<Pencil size={14} />}
+                  onClick={() => { close(); setEditingQuestion(true); }}
+                >
+                  Edit question
+                </MenuItem>
+                <MenuItem
+                  icon={<Bookmark size={14} />}
+                  onClick={() => { close(); setSaveDialogOpen(true); }}
+                >
+                  {saved ? "Saved" : "Save query"}
+                </MenuItem>
+                <MenuSeparator />
+                <MenuItem
+                  danger
+                  icon={<Trash2 size={14} />}
+                  onClick={() => { close(); handleDeleteTurn(); }}
+                >
+                  Delete
+                </MenuItem>
               </>
             )}
-          </div>
+          </Menu>
+        </div>
+      )}
 
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-5 h-5 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-accent-hover">
-              <Sparkles size={11} />
-            </span>
-            <span className="text-[13px] font-medium text-primary">Phantom</span>
-            {validation?.is_safe && (
-              <span className="flex items-center gap-1 text-[11px] text-accent-hover">
-                <Check size={12} /> READ-ONLY
-              </span>
-            )}
-            {validation && !validation.is_safe && (
-              <span className="flex items-center gap-1 text-[11px] text-danger">
-                <AlertTriangle size={12} /> BLOCKED
-              </span>
-            )}
-            {turn.executed && <span className="text-[11px] text-faint">· ran</span>}
-          </div>
+      {/* Phantom's proposal. */}
+      <div className="rounded-xl border border-line bg-panel overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border-subtle">
+          <span
+            className="w-5 h-5 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-accent shrink-0"
+            aria-hidden
+          >
+            <Sparkles size={11} />
+          </span>
+          <span className="text-xs font-medium text-primary">Phantom Query</span>
+          <span className="text-xs text-faint truncate">
+            {turn.executed ? "ran this query" : "proposed this query"}
+          </span>
+          {turn.executed && (
+            <Badge tone="neutral" className="ml-auto">
+              {turn.row_count ?? 0} row{turn.row_count === 1 ? "" : "s"}
+              {turn.duration_ms != null && ` · ${turn.duration_ms}ms`}
+            </Badge>
+          )}
+        </div>
 
-          <p className="text-sm text-secondary leading-relaxed mb-3">
-            {turn.executed ? "Here's the query I ran to answer that." : "I've generated the query below. Review it, then run it when you're ready."}
-          </p>
-
-          <div className="rounded-lg border border-border-subtle bg-ink overflow-hidden mb-3">
-            <div className="px-3 py-1.5 border-b border-border-subtle text-[11px] text-faint">SQL Query</div>
-            {editingSql ? (
-              <textarea value={sql} onChange={(e) => setSql(e.target.value)} rows={5} spellCheck={false} className="w-full bg-transparent px-3 py-2.5 text-xs font-mono text-primary focus:outline-none resize-y" autoFocus />
-            ) : (
-              <pre className="px-3 py-2.5 text-xs font-mono text-primary whitespace-pre-wrap wrap-break-word">{sql}</pre>
-            )}
-          </div>
+        <div className="p-4">
+          <SqlReview
+            sql={sql}
+            onSqlChange={setSql}
+            validation={validation}
+            validating={validating}
+            dbType={dbType}
+            running={running}
+            hasRun={turn.executed}
+            onRun={handleRun}
+            actions={
+              <Button
+                variant="secondary"
+                icon={<MessageCircleQuestion size={14} />}
+                loading={explaining}
+                onClick={handleExplain}
+              >
+                Explain
+              </Button>
+            }
+          />
 
           {explanation && (
-            <div className="rounded-md bg-accent/10 border border-accent/30 px-3 py-2 mb-3">
-              <p className="text-xs text-secondary leading-relaxed">{explanation}</p>
+            <div className="mt-3">
+              <Alert tone="info" title="What this query does">
+                {explanation}
+              </Alert>
             </div>
-          )}
-
-          {validation && !validation.is_safe && (
-            <p className="text-xs text-danger mb-3">{validation.reasons.join(" · ")}</p>
           )}
 
           {runError && (
-            <div className="flex items-center justify-between gap-3 rounded-md bg-danger/10 border border-danger/30 px-3 py-2 mb-3">
-              <span className="text-xs text-danger">{runError}</span>
-              <button onClick={handleRetryWithAI} disabled={retrying} className="shrink-0 text-xs px-2.5 py-1 rounded-md bg-danger/20 hover:bg-danger/30 text-danger disabled:opacity-50">
-                {retrying ? "Retrying…" : "Retry with AI"}
-              </button>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={handleRun} disabled={!validation?.is_safe || running} className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-md bg-accent hover:bg-accent-hover text-white disabled:opacity-40 transition-colors">
-              <Play size={13} /> {running ? "Running…" : "Run Query"}
-            </button>
-            <button onClick={() => setEditingSql(!editingSql)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-md border border-border-subtle text-secondary hover:bg-hover transition-colors">
-              <Pencil size={13} /> {editingSql ? "Done Editing" : "Edit Query"}
-            </button>
-            <button onClick={handleCopySql} className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-md border border-border-subtle text-secondary hover:bg-hover transition-colors">
-              <Copy size={13} /> Copy SQL
-            </button>
-            <button onClick={handleExplain} disabled={explaining} className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-md border border-border-subtle text-secondary hover:bg-hover transition-colors disabled:opacity-50">
-              <MessageCircleQuestion size={13} /> {explaining ? "Explaining…" : "Explain Query"}
-            </button>
-          </div>
-
-          {results && (
-            <div className="mt-4 pt-4 border-t border-border-subtle">
-              <button onClick={() => setResultsCollapsed(!resultsCollapsed)} className="text-xs font-medium text-primary hover:text-accent-hover flex items-center gap-1.5 mb-2">
-                {resultsCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                View Results ({results.row_count} rows)
-              </button>
-              {!resultsCollapsed && (
-                <div className="-mx-1 rounded-lg border border-border-subtle bg-ink">
-                  <ResultsTable results={results} question={turn.question} sql={sql} dbType={dbType} />
-                </div>
-              )}
+            <div className="mt-3">
+              <Alert
+                tone="danger"
+                title="The database rejected this query"
+                action={
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    icon={<RotateCw size={13} />}
+                    loading={retrying}
+                    onClick={handleRetryWithAI}
+                  >
+                    Fix with AI
+                  </Button>
+                }
+              >
+                {runError}
+              </Alert>
             </div>
           )}
         </div>
+
+        {results && (
+          <div className="border-t border-border-subtle bg-ink/40">
+            <ResultsTable
+              results={results}
+              question={turn.question}
+              sql={sql}
+              dbType={dbType}
+            />
+          </div>
+        )}
+      </div>
+
+      {saveDialogOpen && (
+        <SaveQueryDialog
+          defaultName={turn.question.slice(0, 60)}
+          onSave={handleSaveQuery}
+          onClose={() => setSaveDialogOpen(false)}
+        />
       )}
     </div>
   );
+}
+
+/* -------------------------------------------------------- team message -- */
+
+function MessageBubble({
+  author, isOwn, text, timestamp, onDelete,
+}: {
+  author: string;
+  isOwn: boolean;
+  text: string;
+  timestamp: string;
+  onDelete?: () => void;
+}) {
+  const initials = author
+    .trim()
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className={`group flex items-start gap-2.5 ${isOwn ? "flex-row-reverse" : ""}`}>
+      <span
+        className="shrink-0 w-7 h-7 rounded-full bg-raised border border-line flex items-center justify-center text-[10px] font-semibold text-muted"
+        aria-hidden
+      >
+        {initials || "?"}
+      </span>
+
+      <div className={`min-w-0 max-w-[85%] ${isOwn ? "text-right" : ""}`}>
+        <p className="text-[11px] text-faint mb-1 px-1">
+          {author} · {formatTime(timestamp)}
+        </p>
+        <div
+          className={`inline-block text-left px-3.5 py-2 rounded-2xl ${
+            isOwn
+              ? "bg-accent/12 border border-accent/20 rounded-br-sm"
+              : "bg-panel border border-line rounded-bl-sm"
+          }`}
+        >
+          <p className="text-sm text-primary leading-relaxed whitespace-pre-wrap break-words">
+            {text}
+          </p>
+        </div>
+      </div>
+
+      {onDelete && (
+        <button
+          onClick={onDelete}
+          aria-label="Delete message"
+          className="shrink-0 mt-6 w-7 h-7 rounded flex items-center justify-center text-faint
+            opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100
+            hover:text-danger hover:bg-hover transition-all"
+        >
+          <Trash2 size={13} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------- save query dialog -- */
+
+function SaveQueryDialog({
+  defaultName, onSave, onClose,
+}: {
+  defaultName: string;
+  onSave: (name: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(defaultName);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(name.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save this query.");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      title="Save this query"
+      description="It appears under Saved queries for everyone in this workspace."
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" loading={saving} onClick={handleSubmit}>Save</Button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit}>
+        <Input
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          error={error}
+          autoFocus
+          required
+        />
+      </form>
+    </Dialog>
+  );
+}
+
+function formatTime(isoString: string): string {
+  return new Date(isoString + "Z").toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }

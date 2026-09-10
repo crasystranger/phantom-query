@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { AccessLevel, ConnectionGrant, WorkspaceMember } from "../type";
-import { X, Users, Lock, Check, Plus } from "lucide-react";
+import { Check, Lock, Plus, Users } from "lucide-react";
+import { Alert, Button, Dialog, Skeleton } from "./ui";
 
 interface Props {
   connectionId: string;
@@ -15,9 +16,9 @@ interface Props {
 /**
  * Admin/owner panel for one connection's access.
  *
- * Deliberately mirrors WorkspaceMembersModal's structure -- same overlay,
- * same row shape, same token usage -- so the two panels read as one system
- * rather than two people's ideas of a member picker.
+ * Deliberately mirrors WorkspaceMembersModal's structure -- same dialog shell,
+ * same row shape, same tokens -- so the two panels read as one system rather
+ * than two people's ideas of a member picker.
  *
  * Everything here is presentation. A member who reached this panel by any
  * means still gets 403 from every endpoint it calls.
@@ -84,137 +85,123 @@ export default function ConnectionAccessModal({
     }
   }
 
-  async function handleGrant(userId: string) {
+  async function handleToggleGrant(userId: string, isGranted: boolean) {
     setBusyUserId(userId);
     setError(null);
     try {
-      const updated = await api.grantConnectionAccess(connectionId, userId);
+      const updated = isGranted
+        ? await api.revokeConnectionAccess(connectionId, userId)
+        : await api.grantConnectionAccess(connectionId, userId);
       setGrants(updated.grants);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to grant access.");
-    } finally {
-      setBusyUserId(null);
-    }
-  }
-
-  async function handleRevoke(userId: string) {
-    setBusyUserId(userId);
-    setError(null);
-    try {
-      const updated = await api.revokeConnectionAccess(connectionId, userId);
-      setGrants(updated.grants);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to revoke access.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : isGranted
+            ? "Failed to revoke access."
+            : "Failed to grant access."
+      );
     } finally {
       setBusyUserId(null);
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div
-        className="bg-panel border border-line rounded-lg w-120 p-5 space-y-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <h2 className="text-sm font-medium text-slate-100 truncate">
-              {connectionName} access
-            </h2>
-            <p className="text-[11px] text-slate-600 mt-0.5">
-              Who in this workspace can use this database.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 shrink-0">
-            <X size={16} />
-          </button>
+    <Dialog
+      title={`${connectionName} access`}
+      description="Who in this workspace can see and query this database."
+      onClose={onClose}
+    >
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-16 w-full rounded-lg" />
+          <Skeleton className="h-16 w-full rounded-lg" />
         </div>
+      ) : (
+        <>
+          <div
+            role="radiogroup"
+            aria-label="Access level"
+            className="space-y-2"
+          >
+            <AccessOption
+              icon={Users}
+              label="Team access"
+              description="Every member of this workspace can see and query it."
+              selected={accessLevel === "team"}
+              disabled={saving}
+              onSelect={() => handleLevelChange("team")}
+            />
+            <AccessOption
+              icon={Lock}
+              label="Restricted"
+              description="Only admins, the creator, and the people you add below."
+              selected={accessLevel === "restricted"}
+              disabled={saving}
+              onSelect={() => handleLevelChange("restricted")}
+            />
+          </div>
 
-        {loading ? (
-          <p className="text-sm text-slate-600">Loading…</p>
-        ) : (
-          <>
-            <div className="space-y-1.5">
-              <AccessOption
-                icon={Users}
-                label="Team access"
-                description="Every member of this workspace can see and query it."
-                selected={accessLevel === "team"}
-                disabled={saving}
-                onSelect={() => handleLevelChange("team")}
-              />
-              <AccessOption
-                icon={Lock}
-                label="Restricted"
-                description="Only admins, the creator, and people you add below."
-                selected={accessLevel === "restricted"}
-                disabled={saving}
-                onSelect={() => handleLevelChange("restricted")}
-              />
-            </div>
+          {accessLevel === "restricted" && (
+            <div className="mt-5 pt-5 border-t border-border-subtle">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-faint mb-2.5">
+                Members with access
+              </p>
 
-            {accessLevel === "restricted" && (
-              <div className="pt-3 border-t border-line space-y-2">
-                <p className="text-xs text-slate-500">Members with access</p>
-
-                {grantableMembers.length === 0 ? (
-                  <p className="text-[11px] text-slate-600">
-                    This workspace has no ordinary members yet. Admins and owners
-                    already have access.
-                  </p>
-                ) : (
-                  <div className="space-y-1.5 max-h-56 overflow-y-auto">
-                    {grantableMembers.map((m) => {
-                      const isGranted = grantedIds.has(m.user_id);
-                      const busy = busyUserId === m.user_id;
-                      return (
-                        <div
-                          key={m.user_id}
-                          className="flex items-center justify-between gap-3 px-3 py-2 rounded-md bg-ink border border-line"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-sm text-slate-200 truncate">{m.name}</p>
-                            <p className="text-xs text-slate-500 truncate">{m.email}</p>
-                          </div>
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              isGranted ? handleRevoke(m.user_id) : handleGrant(m.user_id)
-                            }
-                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md border shrink-0 disabled:opacity-50 ${
-                              isGranted
-                                ? "border-line text-slate-400 hover:text-danger hover:border-danger/40"
-                                : "border-accent/30 text-accent hover:bg-accent/10"
-                            }`}
-                          >
-                            {isGranted ? (
-                              <>
-                                <Check size={12} /> Has access
-                              </>
-                            ) : (
-                              <>
-                                <Plus size={12} /> Add
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <p className="text-[11px] text-slate-600">
-                  Admins and owners always have access. Existing chats keep their
-                  history even after a connection is restricted.
+              {grantableMembers.length === 0 ? (
+                <p className="text-xs text-muted">
+                  This workspace has no ordinary members yet. Admins and owners already
+                  have access.
                 </p>
-              </div>
-            )}
-          </>
-        )}
+              ) : (
+                <ul className="space-y-2">
+                  {grantableMembers.map((m) => {
+                    const isGranted = grantedIds.has(m.user_id);
+                    const busy = busyUserId === m.user_id;
+                    return (
+                      <li
+                        key={m.user_id}
+                        className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-raised border border-line"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm text-primary truncate">{m.name}</p>
+                          <p className="text-xs text-muted truncate">{m.email}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={isGranted ? "secondary" : "primary"}
+                          loading={busy}
+                          icon={isGranted ? <Check size={12} /> : <Plus size={12} />}
+                          onClick={() => handleToggleGrant(m.user_id, isGranted)}
+                          aria-label={
+                            isGranted
+                              ? `Revoke ${m.name}'s access to ${connectionName}`
+                              : `Give ${m.name} access to ${connectionName}`
+                          }
+                        >
+                          {isGranted ? "Has access" : "Add"}
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
 
-        {error && <p className="text-xs text-red-400">{error}</p>}
-      </div>
-    </div>
+              <p className="text-xs text-faint mt-3">
+                Admins and owners always have access. Existing chats keep their history
+                even after a connection is restricted.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
+      {error && (
+        <Alert tone="danger" className="mt-3" title="That didn't work">
+          {error}
+        </Alert>
+      )}
+    </Dialog>
   );
 }
 
@@ -230,25 +217,30 @@ function AccessOption({
 }) {
   return (
     <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
       onClick={onSelect}
       disabled={disabled}
-      className={`w-full flex items-start gap-2.5 text-left px-3 py-2.5 rounded-md border transition-colors disabled:opacity-50 ${
-        selected
-          ? "border-accent/40 bg-accent/10"
-          : "border-line bg-ink hover:bg-hover"
-      }`}
+      className={`w-full flex items-start gap-2.5 text-left px-3 py-3 rounded-lg border transition-colors
+        disabled:opacity-50 disabled:pointer-events-none ${
+          selected
+            ? "border-accent/45 bg-accent/8"
+            : "border-line bg-raised hover:bg-hover hover:border-faint"
+        }`}
     >
       <Icon
-        size={14}
-        className={`mt-0.5 shrink-0 ${selected ? "text-accent" : "text-slate-500"}`}
+        size={15}
+        className={`mt-0.5 shrink-0 ${selected ? "text-accent" : "text-muted"}`}
+        aria-hidden
       />
-      <div className="min-w-0">
-        <p className={`text-sm ${selected ? "text-slate-100" : "text-slate-300"}`}>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-sm font-medium ${selected ? "text-primary" : "text-secondary"}`}>
           {label}
-        </p>
-        <p className="text-xs text-slate-500">{description}</p>
-      </div>
-      {selected && <Check size={14} className="text-accent shrink-0 ml-auto mt-0.5" />}
+        </span>
+        <span className="block text-xs text-muted mt-0.5">{description}</span>
+      </span>
+      {selected && <Check size={15} className="text-accent shrink-0 mt-0.5" aria-hidden />}
     </button>
   );
 }

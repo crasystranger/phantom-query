@@ -1,64 +1,234 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   Phantom Query design tokens
+   ----------------------------------------------------------------------------
+   Surfaces read as a ladder: ink (canvas) < panel (structure) < elevated
+   (menus, dialogs) < raised (inputs and code wells that sit on a panel).
+   Every component picks a rung rather than inventing its own grey.
+
+   Text has four weights -- primary / secondary / muted / faint -- so hierarchy
+   comes from the token, not from a per-file guess at a slate-* shade.
+   ========================================================================== */
 @theme {
-  --color-ink: #0D1117;
-  --color-panel: #161B22;
-  --color-elevated: #1C2128;
-  --color-line: #262b35;
-  --color-hover: #21262d;
+  /* Surfaces */
+  --color-ink: #0b0e14;
+  --color-panel: #11151d;
+  --color-elevated: #171c26;
+  --color-raised: #1d2430;
+  --color-line: #222834;
+  --color-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-hover: rgba(255, 255, 255, 0.055);
 
-  --color-accent: #22C55E;
-  --color-accent-hover: #16A34A;
-  --color-warn: #f59e0b;
-  --color-danger: #f85149;
+  /* Text */
+  --color-primary: #e6edf3;
+  --color-secondary: #b3c0cd;
+  --color-muted: #8b949e;
+  --color-faint: #828c9b;
 
-  --color-text: #E6EDF3;
+  /* Legacy aliases, kept so `text-text`/`bg-text` keep resolving. */
+  --color-text: #e6edf3;
   --color-text-muted: #8b949e;
-  --color-text-faint: #6e7681;
+  --color-text-faint: #828c9b;
 
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
-  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  /* Accent -- overridden at runtime by theme.ts when the user picks a colour */
+  --color-accent: #22c55e;
+  --color-accent-hover: #16a34a;
+  --color-accent-fg: #04140a;
+  --color-accent-text: color-mix(in srgb, var(--color-accent) 85%, #fff);
+
+  /* Status */
+  --color-danger: #f85149;
+  --color-warn: #d29922;
+  --color-info: #58a6ff;
+
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Menlo", monospace;
+
+  /* Elevation. Two levels only: popovers and dialogs. */
+  --shadow-popover: 0 8px 24px -6px rgba(0, 0, 0, 0.55), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
+  --shadow-dialog: 0 24px 56px -12px rgba(0, 0, 0, 0.7), 0 4px 12px -4px rgba(0, 0, 0, 0.5);
+
+  /* Motion */
+  --ease-out-quick: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 :root.light {
   --color-ink: #ffffff;
-  --color-panel: #f6f8fa;
+  --color-panel: #f7f8fa;
   --color-elevated: #ffffff;
-  --color-line: #d0d7de;
-  --color-hover: #eaeef2;
+  --color-raised: #f1f3f6;
+  --color-line: #d8dee6;
+  --color-border-subtle: rgba(16, 24, 40, 0.1);
+  --color-hover: rgba(16, 24, 40, 0.045);
 
-  --color-text: #1f2328;
-  --color-text-muted: #57606a;
-  --color-text-faint: #6e7781;
-  --color-border-subtle: rgba(0, 0, 0, 0.08);
-}
+  --color-primary: #101828;
+  --color-secondary: #344054;
+  --color-muted: #5a6472;
+  --color-faint: #636c78;
 
-/* Darken all the hardcoded slate-* text classes used throughout the app
-   when light mode is active. This is a broad-brush fix -- the proper long-
-   term solution is migrating every component to the semantic text tokens
-   (text-primary/text-secondary/text-muted), but this covers the app
-   correctly in the meantime without touching every file. */
-:root.light .text-slate-100,
-:root.light .text-slate-200 {
-  color: #1f2328 !important;
-}
-:root.light .text-slate-300 {
-  color: #24292f !important;
-}
-:root.light .text-slate-400 {
-  color: #57606a !important;
-}
-:root.light .text-slate-500 {
-  color: #6e7781 !important;
-}
-:root.light .text-slate-600 {
-  color: #8c959f !important;
+  --color-text: #101828;
+  --color-text-muted: #5a6472;
+  --color-text-faint: #636c78;
+
+  --color-accent-fg: #ffffff;
+  --color-accent-text: color-mix(in srgb, var(--color-accent) 60%, #000);
+
+  --color-danger: #cf222e;
+  --color-warn: #8a5d00;
+  --color-info: #0969da;
+
+  --shadow-popover: 0 8px 24px -6px rgba(16, 24, 40, 0.12), 0 2px 6px -2px rgba(16, 24, 40, 0.08);
+  --shadow-dialog: 0 24px 56px -12px rgba(16, 24, 40, 0.18), 0 4px 12px -4px rgba(16, 24, 40, 0.1);
 }
 
-body {
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  background-color: var(--color-ink);
-  transition: background-color 0.15s, color 0.15s;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-primary);
+    background-color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One focus treatment for the whole product. Keyboard users get a visible
+     ring; pointer users don't, because :focus-visible already draws that line. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    color: var(--color-primary);
+  }
+
+  /* Native form controls inherit the app's type instead of the OS default. */
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Dark scrollbars, so overflow areas don't flash a bright system chrome. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-line);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-faint);
+  }
+}
+
+@layer utilities {
+  /* Content that must not stretch a flex/grid parent past the viewport --
+     the fix for the horizontal overflow that tables and SQL blocks cause. */
+  .min-w-0-fix {
+    min-width: 0;
+  }
+}
+
+/* Entrance motion. Deliberately small and fast: these exist to explain that
+   something appeared, not to perform. */
+@keyframes phq-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes phq-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes phq-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes phq-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-fade-in {
+  animation: phq-fade-in 0.15s var(--ease-out-quick) both;
+}
+.animate-pop-in {
+  animation: phq-pop-in 0.14s var(--ease-out-quick) both;
+}
+.animate-slide-up {
+  animation: phq-slide-up 0.2s var(--ease-out-quick) both;
+}
+
+/* Skeletons carry a travelling highlight so a loading block reads as "waiting"
+   rather than "empty box". */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-raised);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-primary) 6%, transparent),
+    transparent
+  );
+  animation: phq-shimmer 1.4s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton::after {
+    display: none;
+  }
 }

@@ -5,30 +5,40 @@ import {
 import { api } from "../api/client";
 import type { Connection, QueryHistoryItem, SchemaSnapshot } from "../type";
 import {
-  Database, Zap, BarChart3, Star, Brain, Search, TrendingUp, Lightbulb, Plus, MessageSquarePlus,
+  ArrowLeft, ArrowRight, BarChart3, Clock, Database, Gauge, Lightbulb, LogOut,
+  MessageSquarePlus, Plus, Search, Settings, Table2, TrendingUp, Zap,
 } from "lucide-react";
+import { PhantomLogo } from "./PhantomLogo";
+import { useThemeTokens } from "../utils/useThemeTokens";
+import {
+  Button, Card, CodeBlock, EmptyState, Menu, MenuItem, MenuSeparator,
+  SectionHeading, Skeleton,
+} from "./ui";
+import { EXAMPLE_QUESTIONS } from "../utils/sql";
 
 interface Props {
   userName: string;
   connections: Connection[];
+  connectionsLoading: boolean;
   onSelectConnection: (id: string) => void;
   onNewConnection: () => void;
   onGoToQuery: () => void;
+  onGoToProfile: () => void;
+  onLogout: () => void;
 }
 
 export default function Dashboard({
-  userName,
-  connections,
-  onSelectConnection,
-  onNewConnection,
-  onGoToQuery,
+  userName, connections, connectionsLoading, onSelectConnection, onNewConnection,
+  onGoToQuery, onGoToProfile, onLogout,
 }: Props) {
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
-  const [stats, setStats] = useState<{ queries_executed: number; total_rows_retrieved: number; avg_duration_ms: number } | null>(null);
+  const [stats, setStats] = useState<{
+    queries_executed: number; total_rows_retrieved: number; avg_duration_ms: number;
+  } | null>(null);
   const [tableCounts, setTableCounts] = useState<Record<string, number>>({});
-  const [expandedQueryId, setExpandedQueryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"dashboard" | "history">("dashboard");
+  const colors = useThemeTokens();
 
   useEffect(() => {
     Promise.all([api.getQueryHistory(), api.getQueryStats()])
@@ -36,20 +46,26 @@ export default function Dashboard({
         setHistory(h);
         setStats(s);
       })
+      .catch(() => {
+        /* the panels below each render their own empty state */
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     connections.forEach((c) => {
-      api.getSchema(c.id).then((snapshot: SchemaSnapshot) => {
-        setTableCounts((prev) => ({ ...prev, [c.id]: snapshot.tables.length }));
-      }).catch(() => {});
+      api
+        .getSchema(c.id)
+        .then((snapshot: SchemaSnapshot) => {
+          setTableCounts((prev) => ({ ...prev, [c.id]: snapshot.tables.length }));
+        })
+        .catch(() => {});
     });
   }, [connections]);
 
   const activityData = useMemo(() => buildActivityData(history), [history]);
   const lastUsedByConnection = useMemo(() => buildLastUsed(history), [history]);
-  const isNewUser = connections.length === 0 && history.length === 0;
+  const isNewUser = !connectionsLoading && connections.length === 0 && history.length === 0;
 
   if (view === "history") {
     return (
@@ -63,188 +79,348 @@ export default function Dashboard({
     );
   }
 
+  const firstName = userName?.trim().split(/\s+/)[0] ?? "";
+
   return (
-    <div className="min-h-screen w-full bg-ink text-slate-200">
-        <div className="w-full px-4 sm:px-8 py-6 sm:py-8">
-          <header className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-semibold text-slate-100">Welcome back, {userName}</h1>
-              <p className="text-slate-500 mt-1 text-sm sm:text-base">Ready to explore your data?</p>
-              </div>
-              <div className="flex gap-3">
-            <button
-              onClick={onNewConnection}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
-            >   
-              <Plus size={15} /> <span className="hidden sm:inline">Connect Database</span><span className="sm:hidden">Connect</span>
-            </button>
-            <button
+    <div className="min-h-dvh w-full bg-ink text-primary">
+      <DashboardHeader
+        userName={userName}
+        onGoToQuery={onGoToQuery}
+        onGoToProfile={onGoToProfile}
+        onLogout={onLogout}
+      />
+
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 sm:py-8">
+        <header className="mb-7 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-primary tracking-tight">
+              {firstName ? `Welcome back, ${firstName}` : "Welcome back"}
+            </h1>
+            <p className="text-sm text-muted mt-1">
+              Ask a question about your data, and review the SQL before it runs.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="secondary" icon={<Plus size={15} />} onClick={onNewConnection}>
+              Connect database
+            </Button>
+            <Button
+              variant="primary"
+              icon={<MessageSquarePlus size={15} />}
               onClick={onGoToQuery}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-md border border-line text-slate-300 hover:border-accent/50 hover:text-accent-hover text-sm font-medium transition-colors"
+              disabled={connections.length === 0}
+              title={connections.length === 0 ? "Connect a database first" : undefined}
             >
-              <MessageSquarePlus size={15} /> <span className="hidden sm:inline">New Query</span><span className="sm:hidden">New</span>
-            </button>
-            </div>
-            </header>
+              New query
+            </Button>
+          </div>
+        </header>
 
         {isNewUser ? (
           <OnboardingCard onNewConnection={onNewConnection} />
         ) : (
-          <>
-            <section className="mb-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard icon={<Database size={16} />} label="Databases" value={connections.length} onClick={onGoToQuery} />
-              <StatCard icon={<Zap size={16} />} label="Queries" value={stats?.queries_executed ?? "—"} onClick={() => setView("history")} />
-              <StatCard icon={<BarChart3 size={16} />} label="Rows Retrieved" value={formatCount(stats?.total_rows_retrieved)} disabled />
-              <StatCard icon={<Star size={16} />} label="Saved Queries" value="—" disabled />
+          <div className="space-y-8">
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <StatCard
+                icon={<Database size={15} />}
+                label="Databases"
+                value={connectionsLoading ? null : connections.length}
+                hint="Connected in this workspace"
+                onClick={onGoToQuery}
+              />
+              <StatCard
+                icon={<Zap size={15} />}
+                label="Queries run"
+                value={loading ? null : stats?.queries_executed ?? 0}
+                hint="View full history"
+                onClick={() => setView("history")}
+              />
+              <StatCard
+                icon={<BarChart3 size={15} />}
+                label="Rows retrieved"
+                value={loading ? null : formatCount(stats?.total_rows_retrieved)}
+                hint="Across all queries"
+              />
+              <StatCard
+                icon={<Gauge size={15} />}
+                label="Avg. duration"
+                value={loading ? null : stats ? `${Math.round(stats.avg_duration_ms)}ms` : "—"}
+                hint="Per executed query"
+              />
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-xs uppercase tracking-wider text-slate-500 mb-3">Query Activity</h2>
-              <div className="h-56 bg-panel border border-line rounded-lg p-4">
-                {activityData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-sm text-slate-600">
-                    Run some queries to see activity here.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={activityData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#262b35" />
-                      <XAxis dataKey="date" stroke="#64748b" fontSize={11} />
-                      <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} />
-                      <Tooltip contentStyle={{ background: "#171a21", border: "1px solid #262b35" }} />
-                      <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
+            <section>
+              <SectionHeading>Query activity</SectionHeading>
+              <Card className="p-4">
+                <div className="h-52">
+                  {loading ? (
+                    <Skeleton className="h-full w-full" />
+                  ) : activityData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-sm text-muted">
+                      Run a query and your activity shows up here.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={activityData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} vertical={false} />
+                        <XAxis dataKey="date" stroke={colors.axis} fontSize={11} tickLine={false} />
+                        <YAxis
+                          stroke={colors.axis}
+                          fontSize={11}
+                          tickLine={false}
+                          allowDecimals={false}
+                          width={32}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: colors.elevated,
+                            border: `1px solid ${colors.grid}`,
+                            borderRadius: 8,
+                            fontSize: 12,
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          name="Queries"
+                          stroke={colors.accent}
+                          strokeWidth={2}
+                          dot={{ r: 2.5, strokeWidth: 0, fill: colors.accent }}
+                          activeDot={{ r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </Card>
             </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <section>
-                <h2 className="text-xs uppercase tracking-wider text-slate-500 mb-3">Recent Queries</h2>
+                <SectionHeading
+                  action={
+                    history.length > 5 && (
+                      <Button size="sm" variant="link" onClick={() => setView("history")}>
+                        View all
+                      </Button>
+                    )
+                  }
+                >
+                  Recent questions
+                </SectionHeading>
                 {loading ? (
-                  <p className="text-sm text-slate-600">Loading…</p>
-                ) : history.length === 0 ? (
-                  <p className="text-sm text-slate-600">No queries yet — ask your first question to get started.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {history.slice(0, 5).map((h) => (
-                      <RecentQueryCard
-                        key={h.id}
-                        item={h}
-                        expanded={expandedQueryId === h.id}
-                        onToggleExpand={() => setExpandedQueryId(expandedQueryId === h.id ? null : h.id)}
-                        onOpen={() => {
-                          onSelectConnection(h.connection_id);
-                          onGoToQuery();
-                        }}
-                      />
-                    ))}
+                  <div className="space-y-2">
+                    <Skeleton className="h-14 w-full rounded-lg" />
+                    <Skeleton className="h-14 w-full rounded-lg" />
                   </div>
+                ) : history.length === 0 ? (
+                  <Card className="px-4 py-6">
+                    <p className="text-sm text-muted">
+                      No questions asked yet. Try something like “
+                      {EXAMPLE_QUESTIONS[0]}”
+                    </p>
+                  </Card>
+                ) : (
+                  <ul className="space-y-2">
+                    {history.slice(0, 5).map((h) => (
+                      <li key={h.id}>
+                        <RecentQueryCard
+                          item={h}
+                          onOpen={() => {
+                            onSelectConnection(h.connection_id);
+                            onGoToQuery();
+                          }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </section>
 
               <section>
-                <h2 className="text-xs uppercase tracking-wider text-slate-500 mb-3">Recent Databases</h2>
-                {connections.length === 0 ? (
-                  <p className="text-sm text-slate-600">No connections yet.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {connections.slice(0, 5).map((c) => (
-                      <DatabaseCard
-                        key={c.id}
-                        connection={c}
-                        tableCount={tableCounts[c.id]}
-                        lastUsed={lastUsedByConnection[c.id]}
-                        onClick={() => {
-                          onSelectConnection(c.id);
-                          onGoToQuery();
-                        }}
-                      />
-                    ))}
+                <SectionHeading>Databases</SectionHeading>
+                {connectionsLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-14 w-full rounded-lg" />
+                    <Skeleton className="h-14 w-full rounded-lg" />
                   </div>
+                ) : connections.length === 0 ? (
+                  <Card className="px-4 py-6 text-center">
+                    <p className="text-sm text-muted">No databases connected yet.</p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Plus size={13} />}
+                      onClick={onNewConnection}
+                      className="mt-3"
+                    >
+                      Connect a database
+                    </Button>
+                  </Card>
+                ) : (
+                  <ul className="space-y-2">
+                    {connections.slice(0, 5).map((c) => (
+                      <li key={c.id}>
+                        <DatabaseCard
+                          connection={c}
+                          tableCount={tableCounts[c.id]}
+                          lastUsed={lastUsedByConnection[c.id]}
+                          onClick={() => {
+                            onSelectConnection(c.id);
+                            onGoToQuery();
+                          }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </section>
             </div>
 
             <section>
-              <h2 className="text-xs uppercase tracking-wider text-slate-500 mb-3">
-                AI Insights <span className="normal-case text-slate-600">(preview)</span>
-              </h2>
-              <div className="rounded-lg border border-line bg-panel px-4 py-4">
-                <ul className="space-y-2 text-sm text-slate-400">
+              <SectionHeading>Insights</SectionHeading>
+              <Card className="px-4 py-3.5">
+                <ul className="space-y-2.5">
                   {buildInsights(history, connections, stats).map((insight, i) => (
-                    <li key={i} className="flex items-center gap-2">
-                      {insight.icon}
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-secondary">
+                      <span className="text-accent shrink-0 mt-0.5" aria-hidden>
+                        {insight.icon}
+                      </span>
                       {insight.text}
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Card>
             </section>
-          </>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
+/* --------------------------------------------------------------- header -- */
+
+function DashboardHeader({
+  userName, onGoToQuery, onGoToProfile, onLogout,
+}: {
+  userName: string;
+  onGoToQuery: () => void;
+  onGoToProfile: () => void;
+  onLogout: () => void;
+}) {
+  const initials = userName
+    ? userName.trim().split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase()
+    : "?";
+
+  return (
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 h-14 px-4 sm:px-6 border-b border-border-subtle bg-panel/95 backdrop-blur">
+      <PhantomLogo className="h-6 w-auto text-primary" />
+      <div className="flex items-center gap-1">
+        <div className="hidden sm:block">
+          <Button variant="ghost" size="sm" onClick={onGoToQuery}>
+            Workspace
+          </Button>
+        </div>
+        <Menu
+          trigger={(props) => (
+            <button
+              {...props}
+              aria-label="Account menu"
+              className="w-9 h-9 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-[11px] font-semibold text-accent-text hover:border-accent/60 transition-colors"
+            >
+              {initials}
+            </button>
+          )}
+        >
+          {(close) => (
+            <>
+              <div className="px-3 py-2 border-b border-border-subtle">
+                <p className="text-sm font-medium text-primary truncate">{userName || "Account"}</p>
+              </div>
+              <MenuItem icon={<ArrowRight size={14} />} onClick={() => { close(); onGoToQuery(); }}>
+                Go to workspace
+              </MenuItem>
+              <MenuItem icon={<Settings size={14} />} onClick={() => { close(); onGoToProfile(); }}>
+                Settings
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem danger icon={<LogOut size={14} />} onClick={() => { close(); onLogout(); }}>
+                Log out
+              </MenuItem>
+            </>
+          )}
+        </Menu>
+      </div>
+    </header>
+  );
+}
+
+/* ---------------------------------------------------------------- cards -- */
+
 function StatCard({
-  icon, label, value, onClick, disabled,
+  icon, label, value, hint, onClick,
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string | number;
+  value: string | number | null;
+  hint?: string;
   onClick?: () => void;
-  disabled?: boolean;
 }) {
+  const content = (
+    <>
+      <div className="flex items-center gap-1.5 text-muted">
+        <span className="text-accent" aria-hidden>{icon}</span>
+        <span className="text-xs">{label}</span>
+      </div>
+      {value === null ? (
+        <Skeleton className="h-8 w-16 mt-1.5" />
+      ) : (
+        <p className="text-2xl font-semibold text-primary mt-1 tabular-nums">{value}</p>
+      )}
+      {hint && <p className="text-[11px] text-faint mt-0.5">{hint}</p>}
+    </>
+  );
+
+  if (!onClick) {
+    return <Card className="px-4 py-3.5">{content}</Card>;
+  }
+
   return (
     <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      title={disabled ? "Coming soon" : undefined}
-      className={`text-left rounded-lg border border-line bg-panel px-4 py-3 transition-colors ${
-        disabled ? "opacity-50 cursor-default" : "hover:border-accent/50 hover:bg-panel/70 cursor-pointer"
-      }`}
+      onClick={onClick}
+      className="text-left rounded-xl border border-line bg-panel px-4 py-3.5 transition-colors hover:border-accent/45 hover:bg-hover"
     >
-      <div className="flex items-center gap-2 text-accent-hover">
-        {icon}
-        <p className="text-2xl font-semibold text-slate-100">{value}</p>
-      </div>
-      <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+      {content}
     </button>
   );
 }
 
-function RecentQueryCard({
-  item, expanded, onToggleExpand, onOpen,
-}: {
-  item: QueryHistoryItem;
-  expanded: boolean;
-  onToggleExpand: () => void;
-  onOpen: () => void;
-}) {
+function RecentQueryCard({ item, onOpen }: { item: QueryHistoryItem; onOpen: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <div className="rounded-md border border-line hover:border-accent/50 transition-colors">
-      <button onClick={onToggleExpand} className="w-full text-left px-3 py-2.5">
-        <p className="flex items-center gap-1.5 text-sm text-slate-300 truncate">
-          <Brain size={13} className="text-accent-hover shrink-0" /> {item.question}
-        </p>
-        <p className="text-xs text-slate-600 mt-0.5">
-          Generated SQL available · {timeAgo(item.executed_at)}
+    <Card className="overflow-hidden">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="w-full text-left px-3.5 py-3 hover:bg-hover transition-colors"
+      >
+        <p className="text-sm text-secondary line-clamp-2">{item.question}</p>
+        <p className="flex items-center gap-1.5 text-[11px] text-faint mt-1">
+          <Clock size={11} aria-hidden />
+          {timeAgo(item.executed_at)} · {item.row_count.toLocaleString()} rows · {item.duration_ms}ms
         </p>
       </button>
       {expanded && (
-        <div className="px-3 pb-2.5">
-          <pre className="text-xs font-mono text-slate-400 bg-ink border border-line rounded-md p-2 overflow-x-auto whitespace-pre-wrap">
-            {item.sql}
-          </pre>
-          <button onClick={onOpen} className="mt-2 text-xs text-accent-hover hover:underline">
-            Open in query workspace →
-          </button>
+        <div className="px-3.5 pb-3.5 space-y-2 animate-fade-in">
+          <CodeBlock code={item.sql} maxHeight="12rem" />
+          <Button size="sm" variant="secondary" iconRight={<ArrowRight size={13} />} onClick={onOpen}>
+            Open in workspace
+          </Button>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -259,38 +435,76 @@ function DatabaseCard({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left px-3 py-2.5 rounded-md border border-line hover:border-accent/50 hover:bg-panel transition-colors"
+      className="w-full text-left px-3.5 py-3 rounded-xl border border-line bg-panel hover:border-accent/45 hover:bg-hover transition-colors"
     >
-      <div className="flex items-center gap-1.5">
-        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-        <p className="text-sm text-slate-300">{connection.name}</p>
+      <div className="flex items-center gap-2">
+        <Database size={14} className="text-accent shrink-0" aria-hidden />
+        <p className="text-sm font-medium text-primary truncate">{connection.name}</p>
       </div>
-      <p className="text-xs text-slate-600 mt-0.5">
-        PostgreSQL · {tableCount !== undefined ? `${tableCount} tables` : "…"}
-        {lastUsed && ` · Last used ${timeAgo(lastUsed)}`}
+      <p className="flex flex-wrap items-center gap-x-2 text-[11px] text-faint mt-1">
+        <span className="font-mono truncate">{connection.database}@{connection.host}</span>
+        {tableCount !== undefined && (
+          <span className="inline-flex items-center gap-1">
+            <Table2 size={10} aria-hidden /> {tableCount} tables
+          </span>
+        )}
+        {lastUsed && <span>Last used {timeAgo(lastUsed)}</span>}
       </p>
     </button>
   );
 }
 
 function OnboardingCard({ onNewConnection }: { onNewConnection: () => void }) {
+  const STEPS = [
+    {
+      title: "Connect a database",
+      body: "Point Phantom Query at Postgres or MySQL. Use a read-only role if you have one — a read-only session is enforced either way.",
+    },
+    {
+      title: "Ask in plain English",
+      body: "Describe what you want to know. Phantom Query reads your schema and writes the SQL for you.",
+    },
+    {
+      title: "Review, then run",
+      body: "Every statement is safety-checked and shown to you first. Nothing touches your data until you press Run.",
+    },
+  ];
+
   return (
-    <div className="rounded-lg border border-line bg-panel px-6 py-8 text-center max-w-lg mx-auto mt-12">
-      <h2 className="text-lg font-medium text-slate-100">Welcome to Phantom Query</h2>
-      <ol className="mt-4 text-sm text-slate-400 space-y-1.5 text-left inline-block">
-        <li>1. Connect a database</li>
-        <li>2. Ask your first question</li>
-        <li>3. View insights here</li>
+    <Card className="px-5 sm:px-8 py-8 max-w-2xl mx-auto mt-6">
+      <h2 className="text-lg font-semibold text-primary">Get started with Phantom Query</h2>
+      <p className="text-sm text-muted mt-1">Three steps, about two minutes.</p>
+
+      <ol className="mt-6 space-y-4">
+        {STEPS.map((step, i) => (
+          <li key={step.title} className="flex gap-3.5">
+            <span
+              className="shrink-0 w-6 h-6 rounded-full bg-accent/12 border border-accent/30 flex items-center justify-center text-[11px] font-semibold text-accent-text"
+              aria-hidden
+            >
+              {i + 1}
+            </span>
+            <div>
+              <p className="text-sm font-medium text-primary">{step.title}</p>
+              <p className="text-sm text-muted mt-0.5 leading-relaxed">{step.body}</p>
+            </div>
+          </li>
+        ))}
       </ol>
-      <button
+
+      <Button
+        variant="primary"
+        icon={<Plus size={15} />}
         onClick={onNewConnection}
-        className="mt-6 flex items-center gap-1.5 mx-auto px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
+        className="mt-7"
       >
-        <Plus size={15} /> Connect Database
-      </button>
-    </div>
+        Connect your first database
+      </Button>
+    </Card>
   );
 }
+
+/* --------------------------------------------------------------- history -- */
 
 function HistoryPage({
   history, connections, onBack, onSelectConnection, onGoToQuery,
@@ -302,39 +516,59 @@ function HistoryPage({
   onGoToQuery: () => void;
 }) {
   return (
-    <div className="min-h-screen w-full bg-ink text-slate-200 px-4 sm:px-8 py-6 sm:py-8">
-      <button onClick={onBack} className="text-xs text-slate-500 hover:text-accent-hover mb-4">
-        ← Dashboard
-      </button>
-      <h1 className="text-xl font-semibold text-slate-100 mb-4">Query History</h1>
-      <div className="space-y-1.5 max-w-2xl">
-        {history.map((h) => {
-          const conn = connections.find((c) => c.id === h.connection_id);
-          return (
-            <button
-              key={h.id}
-              onClick={() => {
-                onSelectConnection(h.connection_id);
-                onGoToQuery();
-              }}
-              className="w-full text-left px-3 py-2.5 rounded-md border border-line hover:border-accent/50 hover:bg-panel transition-colors"
-            >
-              <p className="flex items-center gap-1.5 text-sm text-slate-300">
-                <Brain size={13} className="text-accent-hover shrink-0" /> {h.question}
-              </p>
-              <p className="text-xs text-slate-600 mt-0.5">
-                {conn?.name ?? "Unknown DB"} · {h.row_count} rows · {h.duration_ms}ms · {timeAgo(h.executed_at)}
-              </p>
-            </button>
-          );
-        })}
+    <div className="min-h-dvh w-full bg-ink text-primary">
+      <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
+        <Button variant="ghost" size="sm" icon={<ArrowLeft size={14} />} onClick={onBack} className="-ml-3">
+          Dashboard
+        </Button>
+
+        <h1 className="text-xl font-semibold text-primary mt-3">Query history</h1>
+        <p className="text-sm text-muted mt-1">
+          {history.length.toLocaleString()} quer{history.length === 1 ? "y" : "ies"} you have run.
+        </p>
+
+        {history.length === 0 ? (
+          <Card className="mt-6">
+            <EmptyState
+              icon={<Clock size={18} />}
+              title="No queries yet"
+              description="Once you run a query it will be recorded here with its row count and duration."
+            />
+          </Card>
+        ) : (
+          <ul className="mt-6 space-y-2">
+            {history.map((h) => {
+              const conn = connections.find((c) => c.id === h.connection_id);
+              return (
+                <li key={h.id}>
+                  <button
+                    onClick={() => {
+                      onSelectConnection(h.connection_id);
+                      onGoToQuery();
+                    }}
+                    className="w-full text-left px-3.5 py-3 rounded-xl border border-line bg-panel hover:border-accent/45 hover:bg-hover transition-colors"
+                  >
+                    <p className="text-sm text-secondary">{h.question}</p>
+                    <p className="text-[11px] text-faint mt-1">
+                      {conn?.name ?? "Deleted connection"} · {h.row_count.toLocaleString()} rows ·{" "}
+                      {h.duration_ms}ms · {timeAgo(h.executed_at)}
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );
 }
 
+/* --------------------------------------------------------------- helpers -- */
+
 function formatCount(n: number | undefined): string {
   if (n === undefined) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
   return String(n);
 }
@@ -361,23 +595,20 @@ function buildActivityData(history: QueryHistoryItem[]): { date: string; count: 
     .map(([date, count]) => ({ date: date.slice(5), count }));
 }
 
-function buildLastUsed(history: QueryHistoryItem[]): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const h of history) {
-    if (!result[h.connection_id] || h.executed_at > result[h.connection_id]) {
-      result[h.connection_id] = h.executed_at;
-    }
-  }
-  return result;
-}
-
+/** Observations derived entirely from data already on this page -- no extra
+ *  request, and nothing claimed that the numbers above don't already support. */
 function buildInsights(
   history: QueryHistoryItem[],
   connections: Connection[],
   stats: { avg_duration_ms: number } | null
 ): { icon: React.ReactNode; text: string }[] {
   if (history.length === 0) {
-    return [{ icon: <Lightbulb size={14} className="text-accent-hover" />, text: "Run a few queries and insights will start showing up here." }];
+    return [
+      {
+        icon: <Lightbulb size={14} />,
+        text: "Run a few queries and patterns in your usage will show up here.",
+      },
+    ];
   }
 
   const insights: { icon: React.ReactNode; text: string }[] = [];
@@ -388,18 +619,34 @@ function buildInsights(
   }
   const mostActiveId = [...connectionCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const mostActiveConn = connections.find((c) => c.id === mostActiveId);
-  if (mostActiveConn) {
+  if (mostActiveConn && mostActiveId) {
     insights.push({
-      icon: <Search size={14} className="text-accent-hover" />,
-      text: `Most active database: ${mostActiveConn.name} (${connectionCounts.get(mostActiveId!)} queries)`,
+      icon: <Search size={14} />,
+      text: `${mostActiveConn.name} is your most queried database (${connectionCounts.get(mostActiveId)} queries).`,
     });
   }
 
   if (stats) {
-    insights.push({ icon: <Zap size={14} className="text-accent-hover" />, text: `Average execution time: ${stats.avg_duration_ms}ms` });
+    insights.push({
+      icon: <Zap size={14} />,
+      text: `Queries take ${Math.round(stats.avg_duration_ms)}ms on average.`,
+    });
   }
 
-  insights.push({ icon: <TrendingUp size={14} className="text-accent-hover" />, text: `You've run ${history.length} quer${history.length !== 1 ? "ies" : "y"} total.` });
+  insights.push({
+    icon: <TrendingUp size={14} />,
+    text: `You've run ${history.length} quer${history.length !== 1 ? "ies" : "y"} in total.`,
+  });
 
   return insights;
+}
+
+function buildLastUsed(history: QueryHistoryItem[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const h of history) {
+    if (!result[h.connection_id] || h.executed_at > result[h.connection_id]) {
+      result[h.connection_id] = h.executed_at;
+    }
+  }
+  return result;
 }

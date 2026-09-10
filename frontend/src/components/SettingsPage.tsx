@@ -3,12 +3,16 @@ import { api } from "../api/client";
 import { loadTheme, saveTheme, darken, type ThemeState } from "../theme";
 import type { AuditLog } from "../type";
 import {
-  User, FileText, FolderKanban, Palette, Bell, Globe, Keyboard,
-  KeyRound, Monitor, ShieldCheck, Lock, Plug, Clock, Upload, Database,
-  Settings, Webhook, Puzzle, Trash2, Construction, Zap, Check, Paintbrush,
-  FileClock, Menu, X,
+  ArrowLeft, Bell, Check, Clock, Construction, Database, FileClock, FileText,
+  FolderKanban, Globe, KeyRound, Keyboard, Lock, Menu as MenuIcon, Monitor,
+  Paintbrush, Palette, Plug, Puzzle, Settings, ShieldCheck, Trash2, Upload,
+  User, Webhook, X, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { PhantomLogo } from "./PhantomLogo";
+import {
+  Alert, Badge, Button, Card, EmptyState, Input, SectionHeading, Select, Skeleton,
+} from "./ui";
 
 interface Props {
   onBack: () => void;
@@ -52,23 +56,18 @@ const NAV: NavGroup[] = [
     items: [
       { id: "password", label: "Password", icon: KeyRound, ready: true },
       { id: "sessions", label: "Sessions", icon: Monitor, ready: false },
-      { id: "2fa", label: "2FA", icon: ShieldCheck, ready: false },
+      { id: "2fa", label: "Two-factor auth", icon: ShieldCheck, ready: false },
       { id: "api-keys", label: "API keys", icon: Lock, ready: false },
     ],
   },
   {
-    label: "Data & Connections",
+    label: "Data & connections",
     items: [
       { id: "connections", label: "Database connections", icon: Plug, ready: true },
       { id: "history", label: "Query history", icon: Clock, ready: true },
+      { id: "audit-logs", label: "Activity log", icon: FileClock, ready: true },
       { id: "exports", label: "Exported data", icon: Upload, ready: false },
       { id: "data-controls", label: "Data controls", icon: Database, ready: false },
-    ],
-  },
-  {
-    label: "Security & Compliance",
-    items: [
-      { id: "audit-logs", label: "Audit Logs", icon: FileClock, ready: true },
     ],
   },
   {
@@ -81,111 +80,154 @@ const NAV: NavGroup[] = [
   },
 ];
 
+const ALL_ITEMS = [
+  ...NAV.flatMap((g) => g.items),
+  { id: "delete-account" as SectionId, label: "Delete account", icon: Trash2, ready: false },
+];
+
 export default function SettingsPage({ onBack, workspaceId }: Props) {
   const [activeSection, setActiveSection] = useState<SectionId>("account");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+
+  const activeLabel = ALL_ITEMS.find((i) => i.id === activeSection)?.label ?? "Settings";
 
   return (
-    <div className="min-h-screen w-full bg-ink text-slate-200 flex flex-col sm:flex-row">
-      <div className="sm:hidden flex items-center gap-3 px-4 py-3 border-b border-line shrink-0">
+    <div className="min-h-dvh w-full bg-ink text-primary">
+      {/* Mobile bar: the current section is the title, and the whole nav is one
+          tap away rather than a squeezed-in rail. */}
+      <div className="lg:hidden sticky top-0 z-30 flex items-center gap-2 h-14 px-3 border-b border-border-subtle bg-panel">
         <button
-          onClick={() => setSidebarOpen(true)}
-          className="w-8 h-8 rounded-md border border-line flex items-center justify-center text-secondary hover:bg-hover transition-colors"
+          onClick={() => setNavOpen(true)}
+          aria-label="Open settings navigation"
+          className="w-9 h-9 rounded-md flex items-center justify-center text-muted hover:text-primary hover:bg-hover transition-colors"
         >
-          <Menu size={16} />
+          <MenuIcon size={17} />
         </button>
-        <span className="text-sm font-semibold text-slate-100">Settings</span>
+        <span className="text-sm font-semibold text-primary truncate">{activeLabel}</span>
+        <Button variant="ghost" size="sm" onClick={onBack} className="ml-auto">
+          Done
+        </Button>
       </div>
 
-      {sidebarOpen && (
+      {navOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 sm:hidden"
-          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden animate-fade-in"
+          onClick={() => setNavOpen(false)}
+          aria-hidden
         />
       )}
 
-      <aside
-        className={`
-          fixed inset-y-0 left-0 z-40 h-full
-          w-64 shrink-0 border-r border-line flex flex-col sm:h-screen sm:sticky sm:top-0
-          transform transition-transform duration-200 ease-in-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full sm:translate-x-0"}
-        `}
-      >
-        <div className="p-4 border-b border-line flex items-center justify-between">
-          <div>
-            <button onClick={onBack} className="text-xs text-slate-500 hover:text-accent-hover">
-              ← Back
-            </button>
-            <h1 className="text-sm font-semibold text-slate-100 mt-2">Settings</h1>
-          </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="sm:hidden text-slate-500 hover:text-slate-300 p-1"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto py-2">
-          {NAV.map((group) => (
-            <div key={group.label} className="mb-4">
-              <p className="px-4 py-1.5 text-[11px] uppercase tracking-wider text-slate-500">
-                {group.label}
-              </p>
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => { setActiveSection(item.id); setSidebarOpen(false); }}
-                    className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors ${
-                      activeSection === item.id
-                        ? "bg-accent/10 text-slate-100 border-r-2 border-accent"
-                        : "text-slate-400 hover:bg-hover"
-                    }`}
-                  >
-                    <Icon size={15} />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    {!item.ready && (
-                      <span className="text-[9px] text-slate-600 shrink-0">soon</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-
-          <div className="mt-2 pt-2 border-t border-line">
-            <p className="px-4 py-1.5 text-[11px] uppercase tracking-wider text-danger/70">
-              Danger zone
-            </p>
+      <div className="flex">
+        <aside
+          aria-label="Settings navigation"
+          className={`fixed lg:sticky inset-y-0 left-0 top-0 z-50 lg:z-10 h-dvh w-72 shrink-0
+            border-r border-border-subtle bg-panel flex flex-col
+            transition-transform duration-200 ease-out
+            ${navOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        >
+          <div className="flex items-center justify-between gap-2 h-14 px-4 border-b border-border-subtle shrink-0">
+            <PhantomLogo className="h-5 w-auto text-primary" />
             <button
-              onClick={() => { setActiveSection("delete-account"); setSidebarOpen(false); }}
-              className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors ${
-                activeSection === "delete-account"
-                  ? "bg-danger/10 text-danger border-r-2 border-danger"
-                  : "text-slate-500 hover:bg-hover"
-              }`}
+              onClick={() => setNavOpen(false)}
+              aria-label="Close settings navigation"
+              className="lg:hidden w-8 h-8 rounded-md flex items-center justify-center text-muted hover:text-primary hover:bg-hover transition-colors"
             >
-              <Trash2 size={15} />
-              <span className="flex-1">Delete account</span>
-              <span className="text-[9px] text-slate-600">soon</span>
+              <X size={16} />
             </button>
           </div>
-        </nav>
-      </aside>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
-          <SectionContent section={activeSection} workspaceId={workspaceId} />
-        </div>
+          <div className="px-3 py-3 border-b border-border-subtle shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<ArrowLeft size={14} />}
+              onClick={onBack}
+              fullWidth
+              className="justify-start"
+            >
+              Back to workspace
+            </Button>
+          </div>
+
+          <nav className="flex-1 overflow-y-auto py-3">
+            {NAV.map((group) => (
+              <div key={group.label} className="mb-4">
+                <p className="px-4 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-faint">
+                  {group.label}
+                </p>
+                <ul>
+                  {group.items.map((item) => (
+                    <li key={item.id}>
+                      <NavButton
+                        item={item}
+                        active={activeSection === item.id}
+                        onClick={() => {
+                          setActiveSection(item.id);
+                          setNavOpen(false);
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+
+            <div className="pt-2 border-t border-border-subtle">
+              <p className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-danger/70">
+                Danger zone
+              </p>
+              <NavButton
+                item={{ id: "delete-account", label: "Delete account", icon: Trash2, ready: false }}
+                active={activeSection === "delete-account"}
+                danger
+                onClick={() => {
+                  setActiveSection("delete-account");
+                  setNavOpen(false);
+                }}
+              />
+            </div>
+          </nav>
+        </aside>
+
+        <main className="flex-1 min-w-0">
+          <div className="mx-auto w-full max-w-2xl px-4 sm:px-8 py-6 sm:py-10">
+            <SectionContent section={activeSection} workspaceId={workspaceId} />
+          </div>
+        </main>
       </div>
     </div>
   );
 }
 
-
+function NavButton({
+  item, active, danger, onClick,
+}: {
+  item: { id: SectionId; label: string; icon: LucideIcon; ready: boolean };
+  active: boolean;
+  danger?: boolean;
+  onClick: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <button
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors border-r-2 ${
+        active
+          ? danger
+            ? "bg-danger/10 text-danger border-danger"
+            : "bg-accent/10 text-primary border-accent font-medium"
+          : `border-transparent hover:bg-hover ${danger ? "text-muted hover:text-danger" : "text-secondary hover:text-primary"}`
+      }`}
+    >
+      <Icon size={15} className="shrink-0" aria-hidden />
+      <span className="flex-1 truncate">{item.label}</span>
+      {!item.ready && (
+        <span className="text-[10px] text-faint shrink-0 font-normal">Soon</span>
+      )}
+    </button>
+  );
+}
 
 function SectionContent({ section, workspaceId }: { section: SectionId; workspaceId: string | null }) {
   switch (section) {
@@ -208,19 +250,31 @@ function SectionContent({ section, workspaceId }: { section: SectionId; workspac
   }
 }
 
-function ComingSoon({ section }: { section: SectionId }) {
-  const label = NAV.flatMap((g) => g.items)
-    .concat([{ id: "delete-account", label: "Delete account", icon: Trash2, ready: false }])
-    .find((i) => i.id === section)?.label ?? "This section";
-
+/** Consistent page furniture, so every section starts the same way. */
+function SectionHeader({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-xl border border-line bg-panel px-6 py-12 text-center">
-      <Construction size={28} className="mx-auto mb-2 text-slate-600" />
-      <h2 className="text-sm font-medium text-slate-300">{label}</h2>
-      <p className="text-xs text-slate-500 mt-1">Coming soon.</p>
-    </div>
+    <header className="mb-6">
+      <h1 className="text-lg font-semibold text-primary">{title}</h1>
+      <p className="text-sm text-muted mt-1">{description}</p>
+    </header>
   );
 }
+
+function ComingSoon({ section }: { section: SectionId }) {
+  const label = ALL_ITEMS.find((i) => i.id === section)?.label ?? "This section";
+
+  return (
+    <Card>
+      <EmptyState
+        icon={<Construction size={18} />}
+        title={label}
+        description="This isn't built yet. It's listed here so you can see what's planned."
+      />
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------- account -- */
 
 function AccountSection() {
   const [profile, setProfile] = useState<{ name: string; email: string; created_at: string } | null>(null);
@@ -233,11 +287,31 @@ function AccountSection() {
   useEffect(() => {
     Promise.all([api.getProfile(), api.getUsage()])
       .then(([p, u]) => { setProfile(p); setUsage(u); })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading || !profile || !usage) {
-    return <p className="text-sm text-slate-600">Loading…</p>;
+  if (loading) {
+    return (
+      <>
+        <SectionHeader title="Account" description="Your profile and AI usage." />
+        <div className="space-y-4">
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-44 w-full rounded-xl" />
+        </div>
+      </>
+    );
+  }
+
+  if (!profile || !usage) {
+    return (
+      <>
+        <SectionHeader title="Account" description="Your profile and AI usage." />
+        <Alert tone="danger" title="Couldn't load your account">
+          Refresh the page to try again.
+        </Alert>
+      </>
+    );
   }
 
   const usagePercent = Math.min(100, (usage.total_tokens / usage.daily_limit) * 100);
@@ -245,77 +319,81 @@ function AccountSection() {
   const completionPercent = Math.min(100, (usage.completion_tokens / usage.daily_limit) * 100);
   const isNearLimit = usagePercent >= 80;
   const isOverLimit = usagePercent >= 100;
-  const initials = profile.name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+  const initials = profile.name.trim().split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-100">Profile</h1>
-        <p className="text-sm text-slate-500">Manage your account and preferences</p>
-      </div>
+    <>
+      <SectionHeader title="Account" description="Your profile and AI usage." />
 
-      <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-lg font-semibold text-accent-hover shrink-0">
+      <div className="flex items-center gap-4 mb-7">
+        <div
+          className="w-14 h-14 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-lg font-semibold text-accent-text shrink-0"
+          aria-hidden
+        >
           {initials}
         </div>
-        <div>
-          <h2 className="text-base font-semibold text-slate-100">{profile.name}</h2>
-          <p className="text-sm text-slate-500">{profile.email}</p>
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-primary truncate">{profile.name}</h2>
+          <p className="text-sm text-muted truncate">{profile.email}</p>
         </div>
       </div>
 
       <section>
-        <div className="rounded-xl border border-line bg-panel p-5">
-          <div className="flex items-start justify-between mb-1">
+        <SectionHeading>AI usage today</SectionHeading>
+        <Card className="p-5">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-slate-500 mb-1">
-                <Zap size={12} /> AI usage today
+              <p className="flex items-center gap-1.5 text-xs text-muted mb-1.5">
+                <Zap size={12} className="text-accent" aria-hidden /> Tokens used
               </p>
-              <div className="flex items-baseline gap-1.5">
-                <span className={`text-3xl font-semibold ${isOverLimit ? "text-danger" : "text-slate-100"}`}>
+              <p className="flex items-baseline gap-1.5">
+                <span
+                  className={`text-3xl font-semibold tabular-nums ${isOverLimit ? "text-danger" : "text-primary"}`}
+                >
                   {usage.total_tokens.toLocaleString()}
                 </span>
-                <span className="text-sm text-slate-500">/ {usage.daily_limit.toLocaleString()}</span>
-              </div>
+                <span className="text-sm text-muted tabular-nums">
+                  / {usage.daily_limit.toLocaleString()}
+                </span>
+              </p>
             </div>
-            <span
-              className={`text-[10px] px-2 py-1 rounded-full border ${
-                isOverLimit
-                  ? "bg-danger/10 text-danger border-danger/30"
-                  : isNearLimit
-                  ? "bg-warn/10 text-warn border-warn/30"
-                  : "bg-accent/10 text-accent-hover border-accent/30"
-              }`}
-            >
-              {isOverLimit ? "LIMIT REACHED" : isNearLimit ? "NEAR LIMIT" : "ON TRACK"}
-            </span>
+            <Badge tone={isOverLimit ? "danger" : isNearLimit ? "warn" : "accent"}>
+              {isOverLimit ? "Limit reached" : isNearLimit ? "Near limit" : "On track"}
+            </Badge>
           </div>
 
-          <div className="w-full h-2.5 rounded-full bg-ink overflow-hidden flex mt-4">
+          <div
+            className="w-full h-2 rounded-full bg-raised overflow-hidden flex mt-4"
+            role="progressbar"
+            aria-valuenow={Math.round(usagePercent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Daily AI token usage"
+          >
             <div className="h-full bg-accent transition-all" style={{ width: `${promptPercent}%` }} />
             <div className="h-full bg-accent-hover transition-all" style={{ width: `${completionPercent}%` }} />
           </div>
 
-          <div className="flex items-center justify-between mt-3 text-xs">
-            <div className="flex gap-4">
-              <span className="flex items-center gap-1.5 text-slate-400">
-                <span className="w-2 h-2 rounded-full bg-accent" />
-                Prompt {usage.prompt_tokens.toLocaleString()}
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-3 text-xs">
+            <div className="flex flex-wrap gap-4">
+              <span className="flex items-center gap-1.5 text-muted">
+                <span className="w-2 h-2 rounded-full bg-accent" aria-hidden />
+                Prompt <span className="tabular-nums text-secondary">{usage.prompt_tokens.toLocaleString()}</span>
               </span>
-              <span className="flex items-center gap-1.5 text-slate-400">
-                <span className="w-2 h-2 rounded-full bg-accent-hover" />
-                Completion {usage.completion_tokens.toLocaleString()}
+              <span className="flex items-center gap-1.5 text-muted">
+                <span className="w-2 h-2 rounded-full bg-accent-hover" aria-hidden />
+                Completion <span className="tabular-nums text-secondary">{usage.completion_tokens.toLocaleString()}</span>
               </span>
             </div>
-            <span className="text-slate-500">{usage.remaining.toLocaleString()} left</span>
+            <span className="text-muted tabular-nums">{usage.remaining.toLocaleString()} left</span>
           </div>
 
-          <p className="text-[11px] text-slate-600 mt-3 pt-3 border-t border-line">
-            Resets daily at midnight UTC
+          <p className="text-[11px] text-faint mt-4 pt-3 border-t border-border-subtle">
+            Resets daily at midnight UTC.
           </p>
-        </div>
+        </Card>
       </section>
-    </div>
+    </>
   );
 }
 
@@ -323,30 +401,39 @@ function PersonalInfoSection() {
   const [profile, setProfile] = useState<{ name: string; email: string; created_at: string } | null>(null);
 
   useEffect(() => {
-    api.getProfile().then(setProfile);
+    api.getProfile().then(setProfile).catch(() => {});
   }, []);
 
-  if (!profile) return <p className="text-sm text-slate-600">Loading…</p>;
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-100">Personal information</h1>
-        <p className="text-sm text-slate-500">Your account details</p>
-      </div>
-      <div className="rounded-xl border border-line bg-panel divide-y divide-line">
-        <DetailRow label="Name" value={profile.name} />
-        <DetailRow label="Email" value={profile.email} />
-        <DetailRow
-          label="Member since"
-          value={new Date(profile.created_at + "Z").toLocaleDateString(undefined, {
-            year: "numeric", month: "long", day: "numeric",
-          })}
-        />
-      </div>
-    </div>
+    <>
+      <SectionHeader title="Personal information" description="Details on your account." />
+      {!profile ? (
+        <Skeleton className="h-36 w-full rounded-xl" />
+      ) : (
+        <Card className="divide-y divide-border-subtle">
+          <DetailRow label="Name" value={profile.name} />
+          <DetailRow label="Email" value={profile.email} />
+          <DetailRow
+            label="Member since"
+            value={new Date(profile.created_at + "Z").toLocaleDateString(undefined, {
+              year: "numeric", month: "long", day: "numeric",
+            })}
+          />
+        </Card>
+      )}
+    </>
   );
 }
+
+/* ----------------------------------------------------------- appearance -- */
+
+const ACCENT_PRESETS = [
+  { name: "Green", accent: "#22C55E" },
+  { name: "Blue", accent: "#3B82F6" },
+  { name: "Purple", accent: "#A855F7" },
+  { name: "Orange", accent: "#F97316" },
+  { name: "Pink", accent: "#EC4899" },
+];
 
 function AppearanceSection() {
   const [theme, setTheme] = useState<ThemeState>(() => loadTheme());
@@ -357,163 +444,210 @@ function AppearanceSection() {
     saveTheme(merged);
   }
 
-  const ACCENT_PRESETS = [
-    { name: "Green", accent: "#22C55E" },
-    { name: "Blue", accent: "#3B82F6" },
-    { name: "Purple", accent: "#A855F7" },
-    { name: "Orange", accent: "#F97316" },
-    { name: "Pink", accent: "#EC4899" },
-  ];
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-primary">Appearance</h1>
-        <p className="text-sm text-muted">How Phantom Query looks</p>
-      </div>
+    <>
+      <SectionHeader title="Appearance" description="How Phantom Query looks on this device." />
 
-      <section>
-        <h2 className="text-xs uppercase tracking-wider text-muted mb-3">Theme</h2>
-        <div className="flex gap-3">
+      <section className="mb-8">
+        <SectionHeading>Theme</SectionHeading>
+        <div role="radiogroup" aria-label="Theme" className="flex gap-3">
           <ThemeOption
             label="Dark"
             active={theme.mode === "dark"}
             onClick={() => updateTheme({ mode: "dark" })}
-            preview="bg-[#0D1117] border-[#262b35]"
+            surface="#0B0E14"
+            panel="#171C26"
           />
           <ThemeOption
             label="Light"
             active={theme.mode === "light"}
             onClick={() => updateTheme({ mode: "light" })}
-            preview="bg-white border-[#d0d7de]"
+            surface="#FFFFFF"
+            panel="#F1F3F6"
           />
         </div>
       </section>
 
       <section>
-        <h2 className="text-xs uppercase tracking-wider text-muted mb-3">Accent color</h2>
-        <div className="flex gap-3 flex-wrap">
-          {ACCENT_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              onClick={() => updateTheme({ accent: preset.accent, accentHover: darken(preset.accent) })}
-              className={`w-9 h-9 rounded-full border-2 transition-transform hover:scale-110 flex items-center justify-center ${
-                theme.accent === preset.accent ? "border-primary" : "border-transparent"
-              }`}
-              style={{ backgroundColor: preset.accent }}
-              title={preset.name}
-            >
-              {theme.accent === preset.accent && <Check size={14} className="text-white" />}
-            </button>
-          ))}
+        <SectionHeading>Accent colour</SectionHeading>
+        <p className="text-xs text-muted mb-3 -mt-1">
+          Used for primary actions, the safety check and chart series.
+        </p>
+        <div role="radiogroup" aria-label="Accent colour" className="flex gap-3 flex-wrap">
+          {ACCENT_PRESETS.map((preset) => {
+            const active = theme.accent.toLowerCase() === preset.accent.toLowerCase();
+            return (
+              <button
+                key={preset.name}
+                role="radio"
+                aria-checked={active}
+                aria-label={preset.name}
+                onClick={() => updateTheme({ accent: preset.accent, accentHover: darken(preset.accent) })}
+                className={`w-9 h-9 rounded-full border-2 transition-transform hover:scale-110 flex items-center justify-center ${
+                  active ? "border-primary" : "border-transparent"
+                }`}
+                style={{ backgroundColor: preset.accent }}
+                title={preset.name}
+              >
+                {active && <Check size={14} className="text-white drop-shadow" aria-hidden />}
+              </button>
+            );
+          })}
+
           <label
-            className="w-9 h-9 rounded-full border-2 border-line flex items-center justify-center cursor-pointer overflow-hidden text-slate-400"
-            title="Custom color"
+            className="relative w-9 h-9 rounded-full border-2 border-line flex items-center justify-center cursor-pointer text-muted hover:text-primary hover:border-accent/50 transition-colors"
+            title="Custom colour"
           >
+            <span className="sr-only">Custom accent colour</span>
             <input
               type="color"
               value={theme.accent}
               onChange={(e) => updateTheme({ accent: e.target.value, accentHover: darken(e.target.value) })}
-              className="opacity-0 absolute w-9 h-9 cursor-pointer"
+              className="absolute inset-0 opacity-0 cursor-pointer"
             />
-            <Paintbrush size={14} />
+            <Paintbrush size={14} aria-hidden />
           </label>
         </div>
       </section>
-    </div>
+    </>
   );
 }
 
 function ThemeOption({
-  label, active, onClick, preview,
+  label, active, onClick, surface, panel,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
-  preview: string;
+  surface: string;
+  panel: string;
 }) {
   return (
     <button
+      role="radio"
+      aria-checked={active}
       onClick={onClick}
       className={`rounded-lg border-2 p-2 transition-colors ${
-        active ? "border-accent" : "border-line hover:border-line"
+        active ? "border-accent" : "border-line hover:border-faint"
       }`}
     >
-      <div className={`w-16 h-10 rounded-md border ${preview}`} />
-      <p className="text-xs text-secondary mt-1.5 text-center">{label}</p>
+      <span
+        className="flex w-20 h-12 rounded-md overflow-hidden border border-line"
+        style={{ backgroundColor: surface }}
+        aria-hidden
+      >
+        <span className="w-1/3 h-full" style={{ backgroundColor: panel }} />
+      </span>
+      <span className="flex items-center justify-center gap-1 text-xs text-secondary mt-2">
+        {active && <Check size={11} className="text-accent" aria-hidden />}
+        {label}
+      </span>
     </button>
   );
 }
 
+/* ---------------------------------------------------------- connections -- */
+
 function ConnectionsSection({ workspaceId }: { workspaceId: string | null }) {
-  const [connections, setConnections] = useState<{ id: string; name: string; database: string; host: string }[]>([]);
+  const [connections, setConnections] = useState<
+    { id: string; name: string; database: string; host: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!workspaceId) return;
-    api.listConnections(workspaceId).then(setConnections).finally(() => setLoading(false));
+    if (!workspaceId) {
+      setLoading(false);
+      return;
+    }
+    api.listConnections(workspaceId)
+      .then(setConnections)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [workspaceId]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-100">Database connections</h1>
-        <p className="text-sm text-slate-500">{connections.length} connected</p>
-      </div>
+    <>
+      <SectionHeader
+        title="Database connections"
+        description={
+          loading
+            ? "Loading your connections…"
+            : `${connections.length} connected in this workspace.`
+        }
+      />
       {loading ? (
-        <p className="text-sm text-slate-600">Loading…</p>
+        <Skeleton className="h-32 w-full rounded-xl" />
       ) : connections.length === 0 ? (
-        <p className="text-sm text-slate-600">No connections yet.</p>
+        <Card>
+          <EmptyState
+            icon={<Plug size={18} />}
+            title="No connections yet"
+            description="Connect a database from your workspace to start asking questions about it."
+          />
+        </Card>
       ) : (
-        <div className="rounded-xl border border-line bg-panel divide-y divide-line">
+        <Card className="divide-y divide-border-subtle">
           {connections.map((c) => (
-            <div key={c.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="text-sm text-slate-200">{c.name}</p>
-                <p className="text-xs text-slate-500 font-mono">{c.database}@{c.host}</p>
+            <div key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm text-primary truncate">{c.name}</p>
+                <p className="text-xs text-muted font-mono truncate">
+                  {c.database}@{c.host}
+                </p>
               </div>
-              <span className="w-2 h-2 rounded-full bg-accent" />
+              <Badge tone="accent">Connected</Badge>
             </div>
           ))}
-        </div>
+        </Card>
       )}
-    </div>
+    </>
   );
 }
 
 function HistorySection() {
-  const [history, setHistory] = useState<{ id: string; question: string; executed_at: string; row_count: number }[]>([]);
+  const [history, setHistory] = useState<
+    { id: string; question: string; executed_at: string; row_count: number }[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getQueryHistory().then(setHistory).finally(() => setLoading(false));
+    api.getQueryHistory().then(setHistory).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-100">Query history</h1>
-        <p className="text-sm text-slate-500">{history.length} queries</p>
-      </div>
+    <>
+      <SectionHeader
+        title="Query history"
+        description={loading ? "Loading…" : `${history.length} queries you have run.`}
+      />
       {loading ? (
-        <p className="text-sm text-slate-600">Loading…</p>
+        <Skeleton className="h-40 w-full rounded-xl" />
       ) : history.length === 0 ? (
-        <p className="text-sm text-slate-600">No queries yet.</p>
+        <Card>
+          <EmptyState
+            icon={<Clock size={18} />}
+            title="No queries yet"
+            description="Executed queries are recorded here with their row counts."
+          />
+        </Card>
       ) : (
-        <div className="rounded-xl border border-line bg-panel divide-y divide-line">
+        <Card className="divide-y divide-border-subtle">
           {history.slice(0, 20).map((h) => (
             <div key={h.id} className="px-4 py-3">
-              <p className="text-sm text-slate-200 truncate">{h.question}</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {h.row_count} rows · {new Date(h.executed_at + "Z").toLocaleString()}
+              <p className="text-sm text-secondary">{h.question}</p>
+              <p className="text-xs text-faint mt-1 tabular-nums">
+                {h.row_count.toLocaleString()} rows ·{" "}
+                {new Date(h.executed_at + "Z").toLocaleString()}
               </p>
             </div>
           ))}
-        </div>
+        </Card>
       )}
-    </div>
+    </>
   );
 }
+
+/* ----------------------------------------------------------- audit logs -- */
 
 const ACTION_LABELS: Record<string, string> = {
   "connection.created": "created connection",
@@ -589,91 +723,109 @@ function AuditLogsSection({ workspaceId }: { workspaceId: string | null }) {
   const [actionFilter, setActionFilter] = useState<string>("");
 
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!workspaceId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     setLoading(true);
     setDenied(false);
     api.getAuditLogs(workspaceId, actionFilter || undefined)
-      .then((result) => setLogs(result))
+      .then((result) => {
+        if (!cancelled) setLogs(result);
+      })
       .catch(() => {
         // Audit logs are admin-or-owner only (see app/permissions.py). An
         // ordinary member gets a 403 here, which is expected -- show them
         // why rather than an empty feed that looks like a loading bug.
+        if (cancelled) return;
         setDenied(true);
         setLogs([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [workspaceId, actionFilter]);
 
-  const actionOptions = Object.keys(ACTION_LABELS);
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-100">Audit Logs</h1>
-        <p className="text-sm text-slate-500">Who did what, in this workspace</p>
-      </div>
+    <>
+      <SectionHeader title="Activity log" description="Who did what in this workspace." />
 
-      {!denied && (
-        <div className="flex items-center gap-2">
-          <select
+      {!denied && !loading && (
+        <div className="mb-4 max-w-xs">
+          <Select
+            label="Filter by action"
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
-            className="rounded-md bg-ink border border-line px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none"
           >
             <option value="">All actions</option>
-            {actionOptions.map((a) => (
+            {Object.keys(ACTION_LABELS).map((a) => (
               <option key={a} value={a}>{ACTION_LABELS[a]}</option>
             ))}
-          </select>
+          </Select>
         </div>
       )}
 
       {loading ? (
-        <p className="text-sm text-slate-600">Loading…</p>
+        <Skeleton className="h-40 w-full rounded-xl" />
       ) : denied ? (
-        <div className="rounded-xl border border-line bg-panel px-4 py-3">
-          <p className="text-sm text-slate-300">Admin access required</p>
-          <p className="text-xs text-slate-500 mt-1">
-            The activity log records every member's actions in this workspace, so it's
-            available to workspace admins and owners. Ask an admin if you need access.
-          </p>
-        </div>
+        <Alert tone="info" title="Admin access required">
+          The activity log records every member&rsquo;s actions in this workspace, so it&rsquo;s
+          available to workspace admins and owners. Ask an admin if you need access.
+        </Alert>
       ) : logs.length === 0 ? (
-        <p className="text-sm text-slate-600">No activity recorded yet.</p>
+        <Card>
+          <EmptyState
+            icon={<FileClock size={18} />}
+            title="Nothing recorded yet"
+            description={
+              actionFilter
+                ? "No activity matches this filter."
+                : "Actions taken in this workspace will appear here."
+            }
+          />
+        </Card>
       ) : (
-        <div className="rounded-xl border border-line bg-panel divide-y divide-line">
+        <Card className="divide-y divide-border-subtle">
           {logs.map((log) => (
             <div key={log.id} className="px-4 py-3">
-              <p className="text-sm text-slate-200">
-                <span className="font-medium">{log.actor_name ?? "Unknown"}</span>{" "}
+              <p className="text-sm text-secondary">
+                <span className="font-medium text-primary">{log.actor_name ?? "Unknown"}</span>{" "}
                 {describeLog(log)}
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-faint mt-1">
                 {new Date(log.created_at + "Z").toLocaleString()}
               </p>
             </div>
           ))}
-        </div>
+        </Card>
       )}
-    </div>
+    </>
   );
 }
+
+/* ------------------------------------------------------------- password -- */
 
 function PasswordSection() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [mismatch, setMismatch] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setMismatch(null);
     setSuccess(false);
 
     if (newPassword !== confirmPassword) {
-      setError("New passwords don't match.");
+      setMismatch("These passwords don't match.");
       return;
     }
 
@@ -692,62 +844,59 @@ function PasswordSection() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-100">Password</h1>
-        <p className="text-sm text-slate-500">Change your account password</p>
-      </div>
+    <>
+      <SectionHeader title="Password" description="Change the password for your account." />
 
-      <form onSubmit={handleSubmit} className="rounded-xl border border-line bg-panel p-5 space-y-4 max-w-sm">
-        <PasswordField label="Current password" value={currentPassword} onChange={setCurrentPassword} />
-        <PasswordField label="New password" value={newPassword} onChange={setNewPassword} />
-        <PasswordField label="Confirm new password" value={confirmPassword} onChange={setConfirmPassword} />
+      <Card className="p-5">
+        <form onSubmit={handleSubmit} className="space-y-4 max-w-sm">
+          <Input
+            label="Current password"
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            required
+          />
+          <Input
+            label="New password"
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+          />
+          <Input
+            label="Confirm new password"
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            error={mismatch}
+            required
+          />
 
-        {error && <p className="text-xs text-red-400">{error}</p>}
-        {success && (
-          <p className="flex items-center gap-1.5 text-xs text-accent-hover">
-            <Check size={13} /> Password changed successfully.
-          </p>
-        )}
+          {error && <Alert tone="danger" title="Couldn't change your password">{error}</Alert>}
+          {success && <Alert tone="success" title="Password changed" />}
 
-        <button
-          type="submit"
-          disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-          className="px-4 py-2 text-sm rounded-md bg-accent hover:bg-accent-hover text-white font-medium disabled:opacity-40 transition-colors"
-        >
-          {saving ? "Changing…" : "Change password"}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-function PasswordField({
-  label, value, onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs text-slate-500">{label}</span>
-      <input
-        type="password"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-        className="mt-1 w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-accent/60"
-      />
-    </label>
+          <Button
+            type="submit"
+            variant="primary"
+            loading={saving}
+            disabled={!currentPassword || !newPassword || !confirmPassword}
+          >
+            {saving ? "Changing…" : "Change password"}
+          </Button>
+        </form>
+      </Card>
+    </>
   );
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className="text-sm text-slate-200">{value}</span>
+    <div className="flex items-center justify-between gap-4 px-4 py-3">
+      <span className="text-sm text-muted shrink-0">{label}</span>
+      <span className="text-sm text-primary truncate">{value}</span>
     </div>
   );
 }

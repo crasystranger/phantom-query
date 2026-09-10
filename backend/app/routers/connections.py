@@ -92,13 +92,19 @@ def create_connection(payload: ConnectionCreate, user_id: str = Depends(get_curr
 
 @router.delete("/{connection_id}")
 def delete_connection(connection_id: str, user_id: str = Depends(get_current_user_id)):
-    connection_manager.delete_connection(connection_id, user_id)
+    try:
+        connection_manager.delete_connection(connection_id, user_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Connection not found")
     return {"status": "deleted"}
 
 
 @router.get("/{connection_id}/health", response_model=ConnectionHealthOut)
 def check_connection_health(connection_id: str, user_id: str = Depends(get_current_user_id)):
-    result = connection_manager.check_health(connection_id, user_id)
+    try:
+        result = connection_manager.check_health(connection_id, user_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Connection not found")
     return ConnectionHealthOut(**result)
 
 

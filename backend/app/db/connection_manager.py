@@ -140,18 +140,18 @@ class ConnectionManager:
                 ConnectionRecord.id == connection_id
             ).first()
             if record is None:
-                return
+                raise KeyError(f"No connection with id {connection_id}")
 
             role = get_role(user_id, record.workspace_id)
             if role is None:
-                return
+                raise KeyError(f"No connection with id {connection_id}")
 
             grant = (
                 granted_connection_ids(user_id, [connection_id])
                 if record.access_level != ACCESS_TEAM else set()
             )
             if not can_access_connection(record.access_level, record.user_id, user_id, role, grant):
-                return
+                raise KeyError(f"No connection with id {connection_id}")
 
             # Capture details before deletion -- the audit log needs to
             # describe what was deleted, and the row won't exist to query

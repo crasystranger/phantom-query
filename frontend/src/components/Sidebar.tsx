@@ -47,7 +47,7 @@ export default function Sidebar({
   canManageAccess, onManageConnectionAccess,
 }: Props) {
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex-1 flex flex-col min-h-0">
       <nav className="flex-1 overflow-y-auto min-h-0 px-2 py-3 space-y-5" aria-label="Workspace">
         {/* -------------------------------------------------- Databases -- */}
         <section>

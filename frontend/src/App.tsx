@@ -22,6 +22,7 @@ import SettingsPage from "./components/SettingsPage";
 import WorkspaceMembersModal from "./components/WorkspaceMembersModal";
 import ConnectionAccessModal from "./components/ConnectionAccessModal";
 import AppHeader from "./components/AppHeader";
+import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
 import { PhantomMark } from "./components/PhantomLogo";
 import { Alert, Button, EmptyState } from "./components/ui";
 
@@ -402,7 +403,14 @@ export default function App() {
           </button>
         </div>
 
-        <div className="h-[calc(100%-3.5rem)] lg:h-full">
+        <div className="h-[calc(100%-3.5rem)] lg:h-full flex flex-col min-h-0">
+          <WorkspaceSwitcher
+            workspaces={workspaces}
+            activeWorkspaceId={activeWorkspaceId}
+            onSwitch={setActiveWorkspaceId}
+            onCreateTeam={handleCreateTeamWorkspace}
+            onManageMembers={(id, name) => setMembersModal({ workspaceId: id, workspaceName: name })}
+          />
           <Sidebar
             connections={connections}
             activeConnectionId={activeConnectionId}
@@ -431,11 +439,8 @@ export default function App() {
           connections={connections}
           activeConnectionId={activeConnectionId}
           userName={userName}
-          canManageMembers={canManageAccess}
           onSwitchWorkspace={setActiveWorkspaceId}
           onSwitchConnection={handleSelectConnection}
-          onCreateTeam={handleCreateTeamWorkspace}
-          onManageMembers={(id, name) => setMembersModal({ workspaceId: id, workspaceName: name })}
           onNewConnection={() => setShowConnectionForm(true)}
           onGoToDashboard={() => setCurrentView("dashboard")}
           onGoToProfile={() => setCurrentView("profile")}

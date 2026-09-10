@@ -1,11 +1,10 @@
-import { useState } from "react";
 import {
-  Check, ChevronsUpDown, Database, LayoutDashboard, LogOut, Menu as MenuIcon,
+  ChevronsUpDown, Database, LayoutDashboard, LogOut, Menu as MenuIcon,
   Plus, Settings, User, Users,
 } from "lucide-react";
 import type { Workspace, Connection } from "../type";
 import { PhantomLogo } from "./PhantomLogo";
-import { Badge, Button, Input, Menu, MenuItem, MenuLabel, MenuSeparator } from "./ui";
+import { Badge, Button, Menu, MenuItem, MenuLabel, MenuSeparator } from "./ui";
 
 interface Props {
   workspaces: Workspace[];
@@ -13,11 +12,8 @@ interface Props {
   connections: Connection[];
   activeConnectionId: string | null;
   userName: string;
-  canManageMembers: boolean;
   onSwitchWorkspace: (id: string) => void;
   onSwitchConnection: (id: string) => void;
-  onCreateTeam: (name: string) => Promise<void> | void;
-  onManageMembers: (workspaceId: string, workspaceName: string) => void;
   onNewConnection: () => void;
   onGoToDashboard: () => void;
   onGoToProfile: () => void;
@@ -34,9 +30,8 @@ interface Props {
  */
 export default function AppHeader({
   workspaces, activeWorkspaceId, connections, activeConnectionId, userName,
-  canManageMembers, onSwitchWorkspace, onSwitchConnection, onCreateTeam,
-  onManageMembers, onNewConnection, onGoToDashboard, onGoToProfile, onLogout,
-  onToggleSidebar,
+  onSwitchWorkspace, onSwitchConnection, onNewConnection, onGoToDashboard,
+  onGoToProfile, onLogout, onToggleSidebar,
 }: Props) {
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const activeConnection = connections.find((c) => c.id === activeConnectionId);
@@ -68,17 +63,46 @@ export default function AppHeader({
         </button>
 
         {activeWorkspace && (
-          <>
+          <div className="hidden sm:flex items-center gap-1 min-w-0">
             <Divider />
-            <WorkspacePicker
-              workspaces={workspaces}
-              activeWorkspace={activeWorkspace}
-              canManageMembers={canManageMembers}
-              onSwitchWorkspace={onSwitchWorkspace}
-              onCreateTeam={onCreateTeam}
-              onManageMembers={onManageMembers}
-            />
-          </>
+            <Menu
+              align="left"
+              className="min-w-56"
+              trigger={(props) => (
+                <button
+                  {...props}
+                  aria-label={`Workspace: ${activeWorkspace.name}. Switch workspace`}
+                  className="flex items-center gap-1.5 h-8 px-2 rounded-md hover:bg-hover transition-colors min-w-0"
+                >
+                  {activeWorkspace.type === "team" ? (
+                    <Users size={14} className="text-muted shrink-0" aria-hidden />
+                  ) : (
+                    <User size={14} className="text-muted shrink-0" aria-hidden />
+                  )}
+                  <span className="text-sm text-secondary truncate min-w-0 max-w-40">
+                    {activeWorkspace.name}
+                  </span>
+                  <ChevronsUpDown size={12} className="text-faint shrink-0" aria-hidden />
+                </button>
+              )}
+            >
+              {(close) => (
+                <>
+                  <MenuLabel>Switch workspace</MenuLabel>
+                  {workspaces.map((ws) => (
+                    <MenuItem
+                      key={ws.id}
+                      icon={ws.type === "team" ? <Users size={14} /> : <User size={14} />}
+                      selected={ws.id === activeWorkspaceId}
+                      onClick={() => { onSwitchWorkspace(ws.id); close(); }}
+                    >
+                      {ws.name}
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+            </Menu>
+          </div>
         )}
 
         {activeConnection && (
@@ -181,121 +205,6 @@ function Divider() {
     <span className="text-faint select-none shrink-0" aria-hidden>
       /
     </span>
-  );
-}
-
-function WorkspacePicker({
-  workspaces, activeWorkspace, canManageMembers, onSwitchWorkspace, onCreateTeam, onManageMembers,
-}: {
-  workspaces: Workspace[];
-  activeWorkspace: Workspace;
-  canManageMembers: boolean;
-  onSwitchWorkspace: (id: string) => void;
-  onCreateTeam: (name: string) => Promise<void> | void;
-  onManageMembers: (workspaceId: string, workspaceName: string) => void;
-}) {
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleCreate(e: React.FormEvent, close: () => void) {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await onCreateTeam(newName.trim());
-      setNewName("");
-      setCreating(false);
-      close();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create the workspace.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Menu
-      align="left"
-      className="min-w-64"
-      trigger={(props) => (
-        <button
-          {...props}
-          aria-label={`Workspace: ${activeWorkspace.name}. Switch workspace`}
-          className="flex items-center gap-1.5 h-8 px-2 rounded-md hover:bg-hover transition-colors min-w-0"
-        >
-          {activeWorkspace.type === "team" ? (
-            <Users size={14} className="text-muted shrink-0" aria-hidden />
-          ) : (
-            <User size={14} className="text-muted shrink-0" aria-hidden />
-          )}
-          <span className="hidden sm:block text-sm text-secondary truncate min-w-0 sm:max-w-40">
-            {activeWorkspace.name}
-          </span>
-          <ChevronsUpDown size={12} className="text-faint shrink-0" aria-hidden />
-        </button>
-      )}
-    >
-      {(close) => (
-        <>
-          <MenuLabel>Workspaces</MenuLabel>
-          {workspaces.map((ws) => (
-            <div key={ws.id} className="flex items-center gap-1 pr-1.5">
-              <MenuItem
-                icon={ws.type === "team" ? <Users size={14} /> : <User size={14} />}
-                selected={ws.id === activeWorkspace.id}
-                onClick={() => { onSwitchWorkspace(ws.id); close(); }}
-              >
-                {ws.name}
-              </MenuItem>
-              {ws.id === activeWorkspace.id && (
-                <Check size={13} className="text-accent-text shrink-0" aria-hidden />
-              )}
-            </div>
-          ))}
-
-          {activeWorkspace.type === "team" && canManageMembers && (
-            <>
-              <MenuSeparator />
-              <MenuItem
-                icon={<Users size={14} />}
-                onClick={() => { onManageMembers(activeWorkspace.id, activeWorkspace.name); close(); }}
-              >
-                Manage members
-              </MenuItem>
-            </>
-          )}
-
-          <MenuSeparator />
-          {creating ? (
-            <form onSubmit={(e) => handleCreate(e, close)} className="px-3 py-2 space-y-2">
-              <Input
-                label="Team name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Data team"
-                error={error}
-                autoFocus
-              />
-              <div className="flex justify-end gap-2">
-                <Button size="sm" variant="ghost" onClick={() => { setCreating(false); setError(null); }}>
-                  Cancel
-                </Button>
-                <Button size="sm" variant="primary" type="submit" loading={submitting}>
-                  Create
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <MenuItem icon={<Plus size={14} />} onClick={() => setCreating(true)}>
-              New team workspace
-            </MenuItem>
-          )}
-        </>
-      )}
-    </Menu>
   );
 }
 

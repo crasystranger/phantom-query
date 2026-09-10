@@ -47,9 +47,9 @@ def delete_saved_query(query_id: str, user_id: str) -> None:
     try:
         record = db.query(SavedQuery).filter(SavedQuery.id == query_id).first()
         if record is None:
-            return
+            raise KeyError(f"No saved query with id {query_id}")
         if not is_member(user_id, record.workspace_id):
-            return
+            raise KeyError(f"No saved query with id {query_id}")
 
         workspace_id = record.workspace_id
         name = record.name

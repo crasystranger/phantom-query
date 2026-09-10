@@ -33,5 +33,8 @@ def create_saved_query(payload: SaveQueryRequest, user_id: str = Depends(get_cur
 
 @router.delete("/{query_id}")
 def remove_saved_query(query_id: str, user_id: str = Depends(get_current_user_id)):
-    delete_saved_query(query_id, user_id)
+    try:
+        delete_saved_query(query_id, user_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Saved query not found")
     return {"status": "deleted"}

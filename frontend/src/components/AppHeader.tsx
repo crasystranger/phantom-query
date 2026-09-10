@@ -41,7 +41,10 @@ export default function AppHeader({
 
   return (
     <header className="flex items-center justify-between gap-2 px-3 sm:px-4 h-14 border-b border-border-subtle bg-panel shrink-0">
-      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+      {/* No `overflow-hidden` here: the breadcrumb dropdowns are absolutely
+          positioned inside this group, and clipping it renders them invisible
+          and un-hittable. Fit is handled by letting the labels truncate. */}
+      <div className="flex items-center gap-1 min-w-0">
         <button
           onClick={onToggleSidebar}
           aria-label="Open workspace navigation"

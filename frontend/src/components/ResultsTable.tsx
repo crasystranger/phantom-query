@@ -229,7 +229,11 @@ export default function ResultsTable({ results, question, sql, dbType }: Props) 
                   </Button>
                 )}
                 {visibleCount > PAGE_SIZE && (
-                  <Button size="sm" variant="ghost" onClick={() => setVisibleCount(PAGE_SIZE)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setVisibleCount((n) => Math.max(PAGE_SIZE, n - PAGE_SIZE))}
+                  >
                     Show less
                   </Button>
                 )}

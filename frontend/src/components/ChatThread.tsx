@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Bookmark, Copy, MessageCircleQuestion, MoreHorizontal, Pencil, RotateCw,
-  Sparkles, Trash2,
+  Bookmark, ChevronDown, Copy, MessageCircleQuestion, MoreHorizontal, Pencil,
+  RotateCw, ShieldAlert, ShieldCheck, Sparkles, Trash2,
 } from "lucide-react";
 import type { ChatTurn, ValidationResult, ExecuteQueryResponse } from "../type";
 import { api } from "../api/client";
@@ -271,6 +271,9 @@ function TurnBlock({
   const isOwn = !turn.author_user_id || turn.author_user_id === currentUserId;
 
   // — Query-only state —
+  // Proposals open by default: the review is the point of the card, so it has
+  // to be seen before it can be folded away.
+  const [collapsed, setCollapsed] = useState(false);
   const [sql, setSql] = useState(turn.edited_sql || turn.generated_sql || "");
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [validating, setValidating] = useState(false);
@@ -505,7 +508,22 @@ function TurnBlock({
 
       {/* Phantom's proposal. */}
       <div className="rounded-xl border border-line bg-panel overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border-subtle">
+        {/* The whole bar toggles. Collapsed, it still reports the safety
+            verdict and row count -- folding a proposal away should never hide
+            whether it passed review or what it returned. */}
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-expanded={!collapsed}
+          aria-controls={`proposal-${turn.id}`}
+          className={`w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-hover
+            transition-colors ${collapsed ? "" : "border-b border-border-subtle"}`}
+        >
+          <ChevronDown
+            size={13}
+            className={`text-faint shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+            aria-hidden
+          />
           <span
             className="w-5 h-5 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-accent shrink-0"
             aria-hidden
@@ -516,15 +534,24 @@ function TurnBlock({
           <span className="text-xs text-faint truncate">
             {turn.executed ? "ran this query" : "proposed this query"}
           </span>
-          {turn.executed && (
-            <Badge tone="neutral" className="ml-auto">
-              {turn.row_count ?? 0} row{turn.row_count === 1 ? "" : "s"}
-              {turn.duration_ms != null && ` · ${turn.duration_ms}ms`}
-            </Badge>
-          )}
-        </div>
 
-        <div className="p-4">
+          <span className="ml-auto flex items-center gap-1.5 shrink-0">
+            {collapsed && validation?.is_safe && (
+              <Badge tone="accent" icon={<ShieldCheck size={9} />}>Read-only</Badge>
+            )}
+            {collapsed && validation && !validation.is_safe && (
+              <Badge tone="danger" icon={<ShieldAlert size={9} />}>Blocked</Badge>
+            )}
+            {turn.executed && (
+              <Badge tone="neutral">
+                {turn.row_count ?? 0} row{turn.row_count === 1 ? "" : "s"}
+                {turn.duration_ms != null && ` · ${turn.duration_ms}ms`}
+              </Badge>
+            )}
+          </span>
+        </button>
+
+        <div id={`proposal-${turn.id}`} className="p-4" hidden={collapsed}>
           <SqlReview
             sql={sql}
             onSqlChange={setSql}
@@ -577,7 +604,7 @@ function TurnBlock({
           )}
         </div>
 
-        {results && (
+        {results && !collapsed && (
           <div className="border-t border-border-subtle bg-ink/40">
             <ResultsTable
               results={results}

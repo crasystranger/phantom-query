@@ -23,11 +23,12 @@ interface Props {
   dbType?: string;
   initialQuestion?: string;
   currentUserId: string;
+  onQuerySaved?: () => void;
 }
 
 export default function ChatThread({
   chatId, connectionId, workspaceId, workspaceType, connectionName, dbType,
-  initialQuestion, currentUserId,
+  initialQuestion, currentUserId, onQuerySaved
 }: Props) {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [question, setQuestion] = useState(initialQuestion ?? "");
@@ -139,6 +140,7 @@ export default function ChatThread({
                     workspaceId={workspaceId}
                     dbType={dbType}
                     currentUserId={currentUserId}
+                    onQuerySaved={onQuerySaved}
                     onUpdate={(t) =>
                       setTurns((prev) => prev.map((p) => (p.id === t.id ? t : p)))
                     }
@@ -256,7 +258,7 @@ function EmptyThread({
 /* ------------------------------------------------------------ one turn -- */
 
 function TurnBlock({
-  turn, connectionId, workspaceId, dbType, currentUserId, onUpdate, onDelete, onEdited,
+  turn, connectionId, workspaceId, dbType, currentUserId, onUpdate, onDelete, onEdited, onQuerySaved
 }: {
   turn: ChatTurn;
   connectionId: string;
@@ -266,6 +268,7 @@ function TurnBlock({
   onUpdate: (t: ChatTurn) => void;
   onDelete: () => void;
   onEdited: (t: ChatTurn) => void;
+  onQuerySaved?: () => void;
 }) {
   const isMessage = turn.kind === "message";
   const isOwn = !turn.author_user_id || turn.author_user_id === currentUserId;
@@ -359,11 +362,12 @@ function TurnBlock({
     }
   }
 
-  async function handleSaveQuery(name: string) {
-    await api.saveQuery(connectionId, workspaceId, name, turn.question, sql);
-    setSaved(true);
-    setSaveDialogOpen(false);
-  }
+ async function handleSaveQuery(name: string) {
+  await api.saveQuery(connectionId, workspaceId, name, turn.question, sql);
+  setSaved(true);
+  setSaveDialogOpen(false);
+  onQuerySaved?.();
+}
 
   async function handleDeleteTurn() {
     if (!confirm("Delete this message? This can't be undone.")) return;
@@ -449,7 +453,7 @@ function TurnBlock({
             <p className="text-[11px] font-medium text-faint mb-1">
               {isOwn ? "You asked" : `${turn.author_name ?? "Someone"} asked`}
             </p>
-            <h2 className="text-base sm:text-lg font-semibold text-primary leading-snug break-words">
+            <h2 className="text-base sm:text-lg font-semibold text-primary leading-snug wrap-break-word">
               {turn.question}
             </h2>
           </div>
@@ -666,7 +670,7 @@ function MessageBubble({
               : "bg-panel border border-line rounded-bl-sm"
           }`}
         >
-          <p className="text-sm text-primary leading-relaxed whitespace-pre-wrap break-words">
+          <p className="text-sm text-primary leading-relaxed whitespace-pre-wrap wrap-break-word">
             {text}
           </p>
         </div>

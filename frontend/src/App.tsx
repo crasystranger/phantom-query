@@ -286,6 +286,12 @@ export default function App() {
     setSavedQueries((prev) => prev.filter((q) => q.id !== id));
   }
 
+  async function handleQuerySaved() {
+  if (!activeWorkspaceId) return;
+  const updated = await api.listSavedQueries(activeWorkspaceId);
+  setSavedQueries(updated);
+}
+
   function renderConnectionForm() {
     return (
       <ConnectionForm
@@ -353,7 +359,7 @@ export default function App() {
       {/* Toasts sit above the drawer so an error raised while navigating is
           never hidden behind it. */}
       {error && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0 z-[60] w-[min(26rem,calc(100vw-1.5rem))] animate-slide-up">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0 z-60 w-[min(26rem,calc(100vw-1.5rem))] animate-slide-up">
           <Alert
             tone="danger"
             title="Something went wrong"
@@ -466,6 +472,7 @@ export default function App() {
               dbType={activeConnection?.db_type}
               initialQuestion={pendingQuestion}
               currentUserId={currentUserId}
+              onQuerySaved={handleQuerySaved}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center px-6 py-10 overflow-y-auto">

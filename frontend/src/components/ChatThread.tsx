@@ -704,18 +704,18 @@ function SaveQueryDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await onSave(name.trim());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't save this query.");
-      setSaving(false);
-    }
+  async function handleSubmit(e?: React.FormEvent) {
+  e?.preventDefault();
+  if (!name.trim()) return;
+  setSaving(true);
+  setError(null);
+  try {
+    await onSave(name.trim());
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Couldn't save this query.");
+    setSaving(false);
   }
+}
 
   return (
     <Dialog
@@ -726,7 +726,7 @@ function SaveQueryDialog({
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" loading={saving} onClick={handleSubmit}>Save</Button>
+          <Button variant="primary" loading={saving} onClick={() => handleSubmit()}>Save</Button>
         </>
       }
     >

@@ -363,6 +363,7 @@ function TurnBlock({
   }
 
    async function handleSaveQuery(name: string) {
+    console.log("SAVE:", { connectionId, workspaceId, name, question: turn.question, sql });
     await api.saveQuery(connectionId, workspaceId, name, turn.question, sql);
     setSaved(true);
     setSaveDialogOpen(false);

@@ -11,6 +11,7 @@ interface Props {
     username: string;
     password: string;
     db_type: "postgres" | "mysql";
+    use_ssl: boolean;
   }) => Promise<void>;
   onCancel: () => void;
 }
@@ -27,6 +28,7 @@ export default function ConnectionForm({ onSubmit, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [dbType, setDbType] = useState<"postgres" | "mysql">("postgres");
+  const [useSsl, setUseSsl] = useState(false);
   // Once someone edits the port themselves, switching engine shouldn't quietly
   // overwrite their value.
   const [portTouched, setPortTouched] = useState(false);
@@ -40,7 +42,7 @@ export default function ConnectionForm({ onSubmit, onCancel }: Props) {
     setError(null);
     setSubmitting(true);
     try {
-      await onSubmit({ name, host, port, database, username, password, db_type: dbType });
+      await onSubmit({ name, host, port, database, username, password, db_type: dbType, use_ssl: useSsl });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
       setSubmitting(false);
@@ -136,6 +138,15 @@ export default function ConnectionForm({ onSubmit, onCancel }: Props) {
           />
         </div>
 
+         <label className="flex items-center gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={useSsl}
+            onChange={(e) => setUseSsl(e.target.checked)}
+            className="w-4 h-4 rounded border border-line accent-accent"
+          />
+          <span className="text-sm text-secondary">Use SSL</span>
+          </label>
         {error && (
           <Alert tone="danger" title="Couldn't connect">
             {error}

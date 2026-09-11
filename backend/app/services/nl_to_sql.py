@@ -32,12 +32,18 @@ DELETE, DROP, ALTER, TRUNCATE, GRANT, or any other write/DDL statement.
 Never invent column or table names.
 - Always include a LIMIT clause (cap at 1000 rows) unless the question is \
 clearly asking for an aggregate (e.g. a COUNT or SUM with no row-level output).
-- If the question is a follow-up or refinement of a previous question in \
-this conversation (e.g. "only from Ghana", "sort by revenue", "remove \
-inactive accounts"), revise the previous SQL to apply the new condition \
-rather than starting over, unless the new question is clearly unrelated.
-- If the question is ambiguous or cannot be answered from the given schema, \
+-- If the question is ambiguous or cannot be answered from the given schema, \
 set "sql" to an empty string and explain why in "explanation".
+- When a query joins a parent table to a child table (one-to-many), \
+aggregating a column from the parent table across that join will produce \
+incorrect results because parent rows are duplicated for each child row. \
+Never use SUM(DISTINCT col) or AVG(DISTINCT col) to work around this — \
+DISTINCT deduplicates by value, not by row identity, so two orders of the \
+same amount would collapse into one. Instead, always pre-aggregate the \
+parent-side metrics in a CTE or subquery before joining to the child table. \
+For example, to get total spending per customer when joining orders to \
+order_items, compute SUM(total_amount) grouped by customer_id in a CTE \
+first, then join that result to order_items separately.
 
 Respond with ONLY a JSON object, no markdown fences, no preamble, in this \
 exact shape:

@@ -362,13 +362,18 @@ function TurnBlock({
     }
   }
 
-   async function handleSaveQuery(name: string) {
-    console.log("SAVE:", { connectionId, workspaceId, name, question: turn.question, sql });
+async function handleSaveQuery(name: string) {
+  console.log("SAVE:", { connectionId, workspaceId, name, question: turn.question, sql });
+  try {
     await api.saveQuery(connectionId, workspaceId, name, turn.question, sql);
+    console.log("SAVE SUCCESS");
     setSaved(true);
     setSaveDialogOpen(false);
     onQuerySaved?.();
+  } catch (err) {
+    console.error("SAVE ERROR:", err);
   }
+}
 
   async function handleDeleteTurn() {
     if (!confirm("Delete this message? This can't be undone.")) return;

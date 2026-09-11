@@ -704,7 +704,7 @@ function SaveQueryDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-    async function handleSubmit(e?: React.FormEvent) {
+  async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
     if (!name.trim()) return;
     setSaving(true);

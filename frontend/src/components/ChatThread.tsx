@@ -362,12 +362,12 @@ function TurnBlock({
     }
   }
 
- async function handleSaveQuery(name: string) {
-  await api.saveQuery(connectionId, workspaceId, name, turn.question, sql);
-  setSaved(true);
-  setSaveDialogOpen(false);
-  onQuerySaved?.();
-}
+   async function handleSaveQuery(name: string) {
+    await api.saveQuery(connectionId, workspaceId, name, turn.question, sql);
+    setSaved(true);
+    setSaveDialogOpen(false);
+    onQuerySaved?.();
+  }
 
   async function handleDeleteTurn() {
     if (!confirm("Delete this message? This can't be undone.")) return;
@@ -704,18 +704,18 @@ function SaveQueryDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e?: React.FormEvent) {
-  e?.preventDefault();
-  if (!name.trim()) return;
-  setSaving(true);
-  setError(null);
-  try {
-    await onSave(name.trim());
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "Couldn't save this query.");
-    setSaving(false);
+    async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(name.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save this query.");
+      setSaving(false);
+    }
   }
-}
 
   return (
     <Dialog

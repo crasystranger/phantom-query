@@ -138,6 +138,7 @@ export interface WorkspaceMember {
   email: string;
   role: WorkspaceRole;
   joined_at: string;
+  display_name: string | null;
 }
 
 export interface SavedQuery {

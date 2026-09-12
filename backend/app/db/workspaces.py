@@ -247,6 +247,7 @@ def list_workspace_members(workspace_id: str) -> list[dict]:
                 "email": user.email if user else "",
                 "role": m.role,
                 "joined_at": m.joined_at,
+                "display_name": m.display_name,
             })
         return result
     finally:
@@ -326,3 +327,37 @@ def set_member_role(
     )
 
     return result
+
+
+def update_display_name(user_id: str, workspace_id: str, display_name: str | None) -> dict:
+    """Sets or clears the caller's own per-workspace display name override.
+
+    A blank/whitespace-only value is treated the same as None -- both clear
+    the override, falling back to the first word of User.name in
+    resolve_author_names(). Self-service, so unlike set_member_role there is
+    no actor/target split and no audit log entry.
+    """
+    db = SessionLocal()
+    try:
+        member = db.query(WorkspaceMember).filter(
+            WorkspaceMember.workspace_id == workspace_id,
+            WorkspaceMember.user_id == user_id,
+        ).first()
+        if member is None:
+            raise KeyError(f"No membership for user {user_id} in workspace {workspace_id}")
+
+        cleaned = display_name.strip() if display_name else None
+        member.display_name = cleaned or None
+        db.commit()
+
+        user = db.query(User).filter(User.id == user_id).first()
+        return {
+            "user_id": user_id,
+            "name": user.name if user else "Unknown",
+            "email": user.email if user else "",
+            "role": member.role,
+            "joined_at": member.joined_at,
+            "display_name": member.display_name,
+        }
+    finally:
+        db.close()

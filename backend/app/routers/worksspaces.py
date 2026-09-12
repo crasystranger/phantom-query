@@ -7,11 +7,12 @@ from app.permissions import (
 )
 from app.schemas import (
     WorkspaceOut, CreateWorkspaceRequest, InviteMemberRequest, WorkspaceMemberOut,
-    UpdateMemberRoleRequest,
+    UpdateMemberRoleRequest, UpdateDisplayNameRequest,
 )
 from app.db.workspaces import (
     list_user_workspaces, create_team_workspace, invite_member_by_email,
     list_workspace_members, remove_member, get_membership, set_member_role,
+    update_display_name,
 )
 
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
@@ -104,4 +105,22 @@ def update_member_role(
         return WorkspaceMemberOut(**membership)
 
     updated = set_member_role(ctx.workspace_id, member_user_id, new_role, ctx.user_id)
+    return WorkspaceMemberOut(**updated)
+
+
+@router.patch("/{workspace_id}/members/me", response_model=WorkspaceMemberOut)
+def update_my_display_name(
+    workspace_id: str,
+    payload: UpdateDisplayNameRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Sets or clears the caller's own display name override for this
+    workspace. update_display_name() checks membership itself and raises
+    KeyError for a non-member, which becomes 404 here -- same
+    404-not-403 invariant as every other workspace route.
+    """
+    try:
+        updated = update_display_name(user_id, workspace_id, payload.display_name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Workspace not found")
     return WorkspaceMemberOut(**updated)

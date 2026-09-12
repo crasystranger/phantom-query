@@ -39,7 +39,7 @@ const NAV: NavGroup[] = [
     items: [
       { id: "account", label: "Account", icon: User, ready: true },
       { id: "personal", label: "Personal information", icon: FileText, ready: true },
-      { id: "workspace", label: "Workspace", icon: FolderKanban, ready: false },
+      { id: "workspace", label: "Workspace", icon: FolderKanban, ready: true },
     ],
   },
   {
@@ -235,6 +235,8 @@ function SectionContent({ section, workspaceId }: { section: SectionId; workspac
       return <AccountSection />;
     case "personal":
       return <PersonalInfoSection />;
+    case "workspace":
+      return <WorkspaceSection workspaceId={workspaceId} />;
     case "appearance":
       return <AppearanceSection />;
     case "connections":
@@ -419,6 +421,112 @@ function PersonalInfoSection() {
               year: "numeric", month: "long", day: "numeric",
             })}
           />
+        </Card>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------- workspace -- */
+
+function WorkspaceSection({ workspaceId }: { workspaceId: string | null }) {
+  const [loading, setLoading] = useState(true);
+  const [isTeam, setIsTeam] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!workspaceId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setSuccess(false);
+    setError(null);
+    Promise.all([api.listWorkspaces(), api.getProfile(), api.getWorkspaceMembers(workspaceId)])
+      .then(([workspaces, profile, members]) => {
+        if (cancelled) return;
+        const ws = workspaces.find((w) => w.id === workspaceId);
+        setIsTeam(ws?.type === "team");
+        const self = members.find((m) => m.user_id === profile.id);
+        setDisplayName(self?.display_name ?? "");
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!workspaceId) return;
+    setError(null);
+    setSuccess(false);
+    setSaving(true);
+    try {
+      const trimmed = displayName.trim();
+      const updated = await api.updateDisplayName(workspaceId, trimmed || null);
+      setDisplayName(updated.display_name ?? "");
+      setSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update display name.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <>
+        <SectionHeader
+          title="Workspace"
+          description="How you appear to other members of this workspace."
+        />
+        <Skeleton className="h-32 w-full rounded-xl" />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <SectionHeader
+        title="Workspace"
+        description="How you appear to other members of this workspace."
+      />
+      {!isTeam ? (
+        <Card>
+          <EmptyState
+            icon={<FolderKanban size={18} />}
+            title="Personal workspace"
+            description="Display names only apply in team workspaces, where they label your messages for other members."
+          />
+        </Card>
+      ) : (
+        <Card className="p-5">
+          <form onSubmit={handleSubmit} className="space-y-4 max-w-sm">
+            <Input
+              label="Display name"
+              placeholder="Your first name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+            <p className="text-xs text-muted -mt-2">
+              Shown on your chat messages in this workspace. Leave blank to use your first name.
+            </p>
+
+            {error && <Alert tone="danger" title="Couldn't update display name">{error}</Alert>}
+            {success && <Alert tone="success" title="Display name updated" />}
+
+            <Button type="submit" variant="primary" loading={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </form>
         </Card>
       )}
     </>

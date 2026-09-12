@@ -210,6 +210,13 @@ updateMemberRole: (workspaceId: string, userId: string, role: AssignableRole) =>
     method: "PATCH", body: JSON.stringify({ role }),
   }),
 
+// display_name: null clears the override, falling back to the caller's
+// first name (see resolve_author_names() on the backend).
+updateDisplayName: (workspaceId: string, displayName: string | null) =>
+  request<WorkspaceMember>(`/workspaces/${workspaceId}/members/me`, {
+    method: "PATCH", body: JSON.stringify({ display_name: displayName }),
+  }),
+
 getAuditLogs: (workspaceId: string, action?: string) =>
   request<AuditLog[]>(
     `/audit-logs?workspace_id=${workspaceId}${action ? `&action=${action}` : ""}`

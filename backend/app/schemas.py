@@ -225,6 +225,7 @@ class WorkspaceMemberOut(BaseModel):
     email: str
     role: str  # "owner" | "admin" | "member" -- see app.permissions
     joined_at: str
+    display_name: str | None = None
 
 
 class UpdateMemberRoleRequest(BaseModel):
@@ -232,6 +233,12 @@ class UpdateMemberRoleRequest(BaseModel):
     # than with a Literal here, so the allowed set has exactly one definition
     # and an invalid value comes back as a 400 with a readable message.
     role: str
+
+
+class UpdateDisplayNameRequest(BaseModel):
+    # None clears the override, falling back to the first word of User.name.
+    # See resolve_author_names() in app/db/workspaces.py.
+    display_name: str | None = None
 
 
 class ExplainRequest(BaseModel):

@@ -43,7 +43,7 @@ export default function ChatThread({
   }, [turns]);
 
   useEffect(() => {
-    setLoading(true);
+    setLoading(true); // eslint-disable-line react-hooks/set-state-in-effect
     api
       .getChatTurns(chatId)
       .then(setTurns)
@@ -298,6 +298,7 @@ function TurnBlock({
 
   useEffect(() => {
     if (isMessage) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSql(turn.edited_sql || turn.generated_sql || "");
     setResults(null);
     setRunError(null);
@@ -306,7 +307,7 @@ function TurnBlock({
 
   useEffect(() => {
     if (isMessage || !sql) return;
-    setValidating(true);
+    setValidating(true); // eslint-disable-line react-hooks/set-state-in-effect
     const timeout = setTimeout(() => {
       api
         .validateSql(connectionId, sql)

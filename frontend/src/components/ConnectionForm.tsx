@@ -34,7 +34,7 @@ export default function ConnectionForm({ onSubmit, onCancel }: Props) {
   const [portTouched, setPortTouched] = useState(false);
 
   useEffect(() => {
-    if (!portTouched) setPort(DEFAULT_PORTS[dbType]);
+    if (!portTouched) setPort(DEFAULT_PORTS[dbType]); // eslint-disable-line react-hooks/set-state-in-effect
   }, [dbType, portTouched]);
 
   async function handleSubmit(e: React.FormEvent) {

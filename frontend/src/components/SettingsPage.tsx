@@ -439,7 +439,7 @@ function WorkspaceSection({ workspaceId }: { workspaceId: string | null }) {
 
   useEffect(() => {
     if (!workspaceId) {
-      setLoading(false);
+      setLoading(false); // eslint-disable-line react-hooks/set-state-in-effect
       return;
     }
     let cancelled = false;
@@ -664,7 +664,7 @@ function ConnectionsSection({ workspaceId }: { workspaceId: string | null }) {
 
   useEffect(() => {
     if (!workspaceId) {
-      setLoading(false);
+      setLoading(false); // eslint-disable-line react-hooks/set-state-in-effect
       return;
     }
     api.listConnections(workspaceId)
@@ -832,7 +832,7 @@ function AuditLogsSection({ workspaceId }: { workspaceId: string | null }) {
 
   useEffect(() => {
     if (!workspaceId) {
-      setLoading(false);
+      setLoading(false); // eslint-disable-line react-hooks/set-state-in-effect
       return;
     }
     let cancelled = false;

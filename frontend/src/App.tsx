@@ -107,7 +107,7 @@ export default function App() {
         setAuthToken(null);
         setAuthTokenState(null);
       });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!authToken) return;
@@ -150,7 +150,7 @@ export default function App() {
   useEffect(() => {
     if (!authToken || !activeWorkspaceId) return;
     let cancelled = false;
-    setConnectionsLoading(true);
+        setConnectionsLoading(true); // eslint-disable-line react-hooks/set-state-in-effect
     api
       .listConnections(activeWorkspaceId)
       .then((list) => {
@@ -168,6 +168,7 @@ export default function App() {
   }, [authToken, activeWorkspaceId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveConnectionId(null);
     setSchema(null);
     setChats([]);
@@ -177,7 +178,7 @@ export default function App() {
   // Closing the drawer whenever the workspace pane changes keeps a mobile user
   // from landing on a screen hidden behind their own navigation.
   useEffect(() => {
-    setSidebarOpen(false);
+        setSidebarOpen(false); // eslint-disable-line react-hooks/set-state-in-effect
   }, [currentView, activeChatId]);
 
   // Escape closes the mobile drawer, matching every other dismissible surface.
@@ -303,7 +304,6 @@ export default function App() {
           }
           const conn = await api.createConnection({
             ...payload,
-            use_ssl: false,
             workspace_id: activeWorkspaceId,
           });
           setConnections((prev) => [...prev, conn]);

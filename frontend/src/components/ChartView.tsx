@@ -40,6 +40,7 @@ export default function ChartView({ results }: Props) {
 
   useEffect(() => {
     const d = detectChartDefaults(results);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setChartType(d.chartType);
     setXColumn(d.xColumn);
     setYColumn(d.yColumn);

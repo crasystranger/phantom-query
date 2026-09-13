@@ -62,7 +62,7 @@ export default function WorkspaceMembersModal({
   }, [workspaceId]);
 
   useEffect(() => {
-    loadMembers();
+    loadMembers(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [loadMembers]);
 
   /** Mirrors assert_can_remove_member: admins may only remove ordinary

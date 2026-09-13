@@ -19,6 +19,8 @@ import uuid
 import datetime
 import logging
 import time
+import ipaddress
+import socket
 from app.security import encrypt_value, decrypt_value
 from app.db.database import SessionLocal
 from app.db.models import ConnectionRecord
@@ -32,6 +34,59 @@ from app.permissions import (
 
 logger = logging.getLogger(__name__)
 
+
+
+
+_BLOCKED_PREFIXES = (
+    "169.254.",   # link-local / cloud metadata (AWS, GCP, Azure)
+    "fd",         # IPv6 ULA
+    "fe80",       # IPv6 link-local
+)
+
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+
+def _assert_safe_host(host: str) -> None:
+    """Reject hosts that could be used to pivot to internal network services.
+
+    Resolves the hostname to an IP and checks it against blocked ranges:
+    loopback, RFC1918 private, link-local (including cloud metadata endpoints),
+    and IPv6 equivalents. Raises ValueError with a generic message so callers
+    cannot distinguish between 'blocked' and 'unresolvable'.
+    """
+    host = host.strip().rstrip(".")
+    try:
+        # getaddrinfo returns all addresses; check every one.
+        results = socket.getaddrinfo(host, None)
+        ips = {r[4][0] for r in results}
+    except OSError:
+        # Unresolvable host — let the connection attempt fail naturally.
+        return
+
+    for ip_str in ips:
+        try:
+            addr = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        if addr.is_loopback or addr.is_link_local or addr.is_private:
+            raise ValueError(
+                "Could not connect to the database. Check your host, port, credentials, and SSL setting."
+            )
+        for network in _BLOCKED_NETWORKS:
+            if addr in network:
+                raise ValueError(
+                    "Could not connect to the database. Check your host, port, credentials, and SSL setting."
+                )
+            
 
 class ConnectionManager:
     def __init__(self):
@@ -48,8 +103,8 @@ class ConnectionManager:
         if access_level not in VALID_ACCESS_LEVELS:
             raise ValueError(f"Invalid access_level: {access_level!r}")
 
+        _assert_safe_host(host)
         self.test_connection(host, port, database, username, password, use_ssl, db_type)
-
         record = ConnectionRecord(
             id=str(uuid.uuid4()),
             user_id=user_id,

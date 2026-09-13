@@ -55,11 +55,16 @@ def _check_grain_risk(parsed: exp.Select, snapshot: SchemaSnapshot) -> list[str]
 
     # Now find SUM(DISTINCT x) or AVG(DISTINCT x)
     for agg in parsed.find_all((exp.Sum, exp.Avg)):
-        if not agg.args.get("distinct"):
+        # sqlglot wraps SUM(DISTINCT x) as Sum(this=Distinct(expressions=[col]))
+        # rather than setting a distinct flag — check for the Distinct node.
+        inner = agg.args.get("this")
+        if not isinstance(inner, exp.Distinct):
             continue
 
-        # Resolve which table the aggregated column belongs to
-        col_node = agg.find(exp.Column)
+        # The column is inside the Distinct node's expressions list
+        col_node = inner.args.get("expressions", [None])[0]
+        if not isinstance(col_node, exp.Column):
+            continue
         if col_node is None:
             continue
         table_alias = col_node.args.get("table")

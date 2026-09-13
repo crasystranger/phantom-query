@@ -109,7 +109,7 @@ def validate(payload: ExecuteQueryRequest, user_id: str = Depends(get_current_us
         raise HTTPException(status_code=404, detail="Connection not found")
 
     known_tables = {t.table_name for t in snapshot.tables}
-    return validate_sql(payload.sql, known_tables=known_tables, dialect=dialect.sqlglot_dialect)
+    return validate_sql(payload.sql, known_tables=known_tables, dialect=dialect.sqlglot_dialect, snapshot=snapshot)
 
 
 @router.post("/execute", response_model=ExecuteQueryResponse)
@@ -125,7 +125,7 @@ def execute(request: Request, payload: ExecuteQueryRequest, user_id: str = Depen
     workspace_id = stored_connection.workspace_id
 
     known_tables = {t.table_name for t in snapshot.tables}
-    validation = validate_sql(payload.sql, known_tables=known_tables, dialect=dialect.sqlglot_dialect)
+    validation = validate_sql(payload.sql, known_tables=known_tables, dialect=dialect.sqlglot_dialect, snapshot=snapshot)
     if not validation.is_safe:
         raise HTTPException(
             status_code=400,

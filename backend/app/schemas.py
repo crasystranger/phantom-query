@@ -91,6 +91,7 @@ class NLQueryResponse(BaseModel):
 class ValidationResult(BaseModel):
     is_safe: bool
     reasons: list[str] = []
+    warnings: list[str] = []
     sanitized_sql: Optional[str] = None
 
 

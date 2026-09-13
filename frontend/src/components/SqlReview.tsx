@@ -149,12 +149,23 @@ export default function SqlReview({
                 }`}
               >
                 <span className="mt-1.5 w-1 h-1 rounded-full bg-current shrink-0" aria-hidden />
-                <span className="font-mono break-words">{reason}</span>
+                <span className="font-mono wrap-break-word">{reason}</span>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+     {validation && validation.warnings && validation.warnings.length > 0 && (
+        <ul className="px-3 pb-3 pt-0 space-y-1">
+          {validation.warnings.map((warning, i) => (
+            <li key={i} className="flex items-start gap-2 text-[11px] leading-relaxed text-warn">
+              <AlertTriangle size={12} className="shrink-0 mt-0.5" aria-hidden />
+              <span className="wrap-break-word">{warning}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {blocked && validation.reasons.length === 0 && (
         <p className="flex items-start gap-2 text-xs text-danger">

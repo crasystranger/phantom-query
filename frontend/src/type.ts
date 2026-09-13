@@ -61,6 +61,7 @@ export interface NLQueryResponse {
 export interface ValidationResult {
   is_safe: boolean;
   reasons: string[];
+  warnings: string[];
   sanitized_sql: string | null;
 }
 

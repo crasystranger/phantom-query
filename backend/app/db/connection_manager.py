@@ -262,11 +262,11 @@ class ConnectionManager:
             }
 
         try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT version()")
+            cursor = dialect.dict_cursor(conn)
+            cursor.execute(dialect.health_query())
             version_row = cursor.fetchone()
             latency_ms = round((time.monotonic() - start) * 1000)
-            version = str(version_row[0]) if version_row else None
+            version = str(version_row.get("version", "") if isinstance(version_row, dict) else version_row[0]) if version_row else None
             return {
                 "healthy": True,
                 "version": version,

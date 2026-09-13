@@ -70,20 +70,13 @@ class _SimpleMySQLPool:
         return pymysql.connect(**self._conn_kwargs)
 
     def getconn(self):
-        import time
-        t0 = time.perf_counter()
         try:
             conn = self._pool.get_nowait()
         except Empty:
             if self._created < self._maxconn:
-                c = self._new_connection()
-                print(f"DEBUG: new_connection took {time.perf_counter() - t0:.2f}s")
-                return c
+                return self._new_connection()
             conn = self._pool.get()
-        t1 = time.perf_counter()
         conn.ping(reconnect=True)
-        t2 = time.perf_counter()
-        print(f"DEBUG: get_nowait/get took {t1-t0:.2f}s, ping took {t2-t1:.2f}s")
         return conn
 
     def putconn(self, conn):
